@@ -1,0 +1,15 @@
+[package]
+name = "text"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+lazy_static="1"
+cpal = "0"
+anyhow = "1"
+clap = "1"
+coremidi = "0"
+termion = "1"
+midir = "0.10.0"
