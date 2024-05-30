@@ -10,6 +10,7 @@
  - [ ] Faire l'interface à part
  - [ ] aller chercher le bout de code pour l'interface CLI
  - [ ] Polyphonie
+ - [ ] Definir la taille du terminal quand j'aurais fini l'interface ?
 
 ## Interface :
 parameter1 - a - ||||||||||---------
@@ -19,6 +20,10 @@ parameter3 - z - |||||||||||||||||||||
 arrow up down -> select next and previous
 arrow left right -> increase / decrease parameter
 number or number -> set value
+
+faire une classe paramètre avec un label, en faire un array, le faire apparaitre un par un, permet de les réarranger rapidement dans le display
+
+pour mettre en forme use `use colored::Colorize;`, puis `println!("{}", string.bold())`
 
 [asyncronicity dans rust](https://rust-lang.github.io/async-book/05_streams/01_chapter.html)
 [reference synth](https://github.com/chris-zen/kiro-synth)
