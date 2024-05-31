@@ -1,5 +1,9 @@
+use std::collections::HashMap;
+
 use crate::filter::FilterType;
 use crate::oscillator::Waveform;
+use crate::parameters::get_parameters;
+use crate::parameters;
 use crate::Biquad;
 use crate::Chorus;
 use crate::HarmonicOscillator;
@@ -13,7 +17,7 @@ pub struct Synth {
     lfo: Lfo,
     chorus: Chorus,
     buffer: RingBuffer,
-
+   pub parameters: HashMap<String, parameters::Parameter>,
     // parameters: Parameters,
     routing_delay_time: f32,
     osc_to_filter_amp: f32,
@@ -46,6 +50,7 @@ impl Synth {
             routing_delay_time: 0.5,
             osc_to_filter_amp: 0.1,
             lfo_to_osc: 0.1,
+            parameters: get_parameters(),
             // parameters: Parameters {},
         }
     }
@@ -86,6 +91,7 @@ impl Synth {
     }
 
     pub fn tick(&mut self) -> f32 {
+        self.set_parameters2();
         self.filter
             .modulate(self.buffer.read_sample() * self.osc_to_filter_amp);
         self.oscillator.modulate(self.lfo.tick() * self.lfo_to_osc);
@@ -109,5 +115,22 @@ impl Synth {
             .set_parameters(parameters.chorus_amp, parameters.chorus_rate);
         self.lfo
             .set_freq_and_shape(parameters.lfo_freq, parameters.lfo_shape);
+    }
+
+    pub fn set_parameters2(&mut self){
+
+        self.filter.set_frequency(self.parameters["fil-freq"].get_raw_value());
+        self.oscillator.set_parameters(
+            self.parameters["osc-freq"].get_raw_value(),
+            Waveform::Sine,
+            self.parameters["lfo-freq"].get_raw_value(),
+            self.parameters["lfo-period"].get_raw_value(),
+        );
+        self.buffer.set_delay_time(self.routing_delay_time);
+        self.chorus
+            .set_parameters(0.5, 0.1);
+        self.lfo
+            .set_freq_and_shape(self.parameters["lfo-freq"].get_raw_value(), Waveform::Square);
+        
     }
 }

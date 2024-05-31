@@ -11,6 +11,7 @@
  - [ ] aller chercher le bout de code pour l'interface CLI
  - [ ] Polyphonie
  - [ ] Definir la taille du terminal quand j'aurais fini l'interface ?
+ - [ ] specific type of parameter for mode handling
 
 ## Interface :
 parameter1 - a - ||||||||||---------
@@ -36,3 +37,9 @@ Utiliser des `async` et des await -> redéclare la fonction à chaque fois ? Pas
 mettre la boucle dans la fonction async, pas sûr que ça marche bien
 
 Le `midir` crée tout seul son thread, mais besoin de l'attribuer à une variable qui reste existante, faudrait le passer à la fonction main
+
+## midi message
+⚠️ you got to be in `$cc:0` in Orca
+NoteOn = 144
+NoteOff = 128
+CC = 176

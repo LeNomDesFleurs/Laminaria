@@ -1,20 +1,30 @@
 
-pub fn stream_setup_for(interface_receiver: Receiver<TextCharacteristic>, midi_receiver: Receiver<[u8;3]>) -> Result<cpal::Stream, anyhow::Error>
+use cpal::{
+    traits::{DeviceTrait, HostTrait, StreamTrait},
+    SizedSample,
+};
+use cpal::{FromSample, Sample};
+use std::sync::mpsc::{Receiver, SyncSender};
+use crate::parameters::Parameter;
+use crate::Synth;
+use std::collections::HashMap;
+
+pub fn stream_setup_for(parameter_receiver: Receiver<Parameter>, midi_receiver: Receiver<[u8;3]>) -> Result<cpal::Stream, anyhow::Error>
 where
 {
     let (_host, device, config) = host_device_setup()?;
 
     match config.sample_format() {
-        cpal::SampleFormat::I8 => make_stream::<i8>(&device, &config.into(), interface_receiver, midi_receiver),
-        cpal::SampleFormat::I16 => make_stream::<i16>(&device, &config.into(), interface_receiver, midi_receiver),
-        cpal::SampleFormat::I32 => make_stream::<i32>(&device, &config.into(), interface_receiver, midi_receiver),
-        cpal::SampleFormat::I64 => make_stream::<i64>(&device, &config.into(), interface_receiver, midi_receiver),
-        cpal::SampleFormat::U8 => make_stream::<u8>(&device, &config.into(), interface_receiver, midi_receiver),
-        cpal::SampleFormat::U16 => make_stream::<u16>(&device, &config.into(), interface_receiver, midi_receiver),
-        cpal::SampleFormat::U32 => make_stream::<u32>(&device, &config.into(), interface_receiver, midi_receiver),
-        cpal::SampleFormat::U64 => make_stream::<u64>(&device, &config.into(), interface_receiver, midi_receiver),
-        cpal::SampleFormat::F32 => make_stream::<f32>(&device, &config.into(), interface_receiver, midi_receiver),
-        cpal::SampleFormat::F64 => make_stream::<f64>(&device, &config.into(), interface_receiver, midi_receiver),
+        cpal::SampleFormat::I8 => make_stream::<i8>(&device, &config.into(), parameter_receiver, midi_receiver),
+        cpal::SampleFormat::I16 => make_stream::<i16>(&device, &config.into(), parameter_receiver, midi_receiver),
+        cpal::SampleFormat::I32 => make_stream::<i32>(&device, &config.into(), parameter_receiver, midi_receiver),
+        cpal::SampleFormat::I64 => make_stream::<i64>(&device, &config.into(), parameter_receiver, midi_receiver),
+        cpal::SampleFormat::U8 => make_stream::<u8>(&device, &config.into(), parameter_receiver, midi_receiver),
+        cpal::SampleFormat::U16 => make_stream::<u16>(&device, &config.into(), parameter_receiver, midi_receiver),
+        cpal::SampleFormat::U32 => make_stream::<u32>(&device, &config.into(), parameter_receiver, midi_receiver),
+        cpal::SampleFormat::U64 => make_stream::<u64>(&device, &config.into(), parameter_receiver, midi_receiver),
+        cpal::SampleFormat::F32 => make_stream::<f32>(&device, &config.into(), parameter_receiver, midi_receiver),
+        cpal::SampleFormat::F64 => make_stream::<f64>(&device, &config.into(), parameter_receiver, midi_receiver),
         sample_format => Err(anyhow::Error::msg(format!(
             "Unsupported sample format '{sample_format}'"
         ))),
@@ -39,14 +49,14 @@ pub fn host_device_setup(
 pub fn make_stream<T>(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
-    interface_receiver: Receiver<TextCharacteristic>,
+    interface_receiver: Receiver<Parameter>,
     midi_receiver: Receiver<[u8;3]>,
 ) -> Result<cpal::Stream, anyhow::Error>
 where
     T: SizedSample + FromSample<f32>,
 {
     let num_channels = config.channels as usize;
-    let args: Vec<String> = env::args().collect();
+    let args: Vec<String> = std::env::args().collect();
 
     let mut synth = Synth::default(config.sample_rate.0 as f32);
     let err_fn = |err| eprintln!("Error building output sound stream: {}", err);
@@ -55,13 +65,18 @@ where
     println!("Time at start: {:?}", time_at_start);
     let iterator = 0;
     let mut amplitude: f32 = 0.;
-
+//create the audio stream
     let stream = device.build_output_stream(
         config,
+//check for new parameter values
         move |output: &mut [T], _: &cpal::OutputCallbackInfo| {
-            if let Ok(textcarac) = interface_receiver.try_recv() {
-                synth.mapping(textcarac);
+            if let Ok(parameter) = interface_receiver.try_recv() {
+                let name = &parameter.name;
+                if let Some(x) = synth.parameters.get_mut(&name as &str) {
+                    *x = parameter;
+                }
             }
+//check for new midi value
             if let Ok(midi) = midi_receiver.try_recv(){
                 if midi[0]==144{
                     amplitude = 1.}
@@ -69,6 +84,7 @@ where
                         amplitude = 0.
                     }
             }
+//process buffer
             process_frame(output, &mut synth, num_channels, amplitude)
         },
         err_fn,
@@ -82,6 +98,7 @@ fn process_frame<SampleType>(output: &mut [SampleType], synth: &mut Synth, num_c
 where
     SampleType: Sample + FromSample<f32>,
 {
+
     for frame in output.chunks_mut(num_channels) {
         // let value: SampleType = SampleType::from_sample(oscillator.tick());
         let value: SampleType = SampleType::from_sample(synth.tick()*amplitude);
