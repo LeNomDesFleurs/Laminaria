@@ -8,10 +8,12 @@
  - [x] Aller chercher le morceau de code pour les channels et l'asynchronie
  - [x] réussir à ouvrir un sine avec un note On, la fermer sur un note Off.
  - [ ] Faire l'interface à part
- - [ ] aller chercher le bout de code pour l'interface CLI
+ - [x] aller chercher le bout de code pour l'interface CLI
  - [ ] Polyphonie
  - [ ] Definir la taille du terminal quand j'aurais fini l'interface ?
  - [ ] specific type of parameter for mode handling
+ - [ ] Enveloppe
+ - [x] replace ui channel struct by an enum
 
 ## Interface :
 parameter1 - a - ||||||||||---------
@@ -43,3 +45,11 @@ Le `midir` crée tout seul son thread, mais besoin de l'attribuer à une variabl
 NoteOn = 144
 NoteOff = 128
 CC = 176
+
+
+## Composition vs inheritance
+
+Composition means *HAS* A
+Inheritance means *IS* A
+
+Example: Car has a Engine and Car is a Automobile

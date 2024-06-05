@@ -56,15 +56,16 @@ pub fn connect_midi(midi_sender: Sender<[u8; 3]>, parameter_clone: Arc<Mutex<Has
             // println!("{}: {:?} (len = {})", stamp, message, message.len());
             //check if CC
             if message[0]==176{
+                //get parameter name from name table
+                let parameter_name = midicc_hash[&message[1]];
                 //convert midi 127 to orca 36
                 let value = ((message[3]as f32/127.) *36.).floor() as i32;
-                let parameter_name = &midicc_hash[&message[1]];
-                let mut parameters = parameter_clone.lock().unwrap();
-                if let Some(parameter) = parameters.get_mut(parameter_name){
+                let mut parameter = parameter_clone.lock().unwrap().get_mut(&parameter_name).unwrap();
+
                     parameter.value=value;
                     parameter_sender.send(parameter.clone()).unwrap();
-                    gui_sender.send(UiEvent{new_selection: false, selected_index: 0}).unwrap();
-                }
+                    gui_sender.send(None).unwrap();
+                
             }
             //else send note
             midi_sender.send([message[0], message[1], message[2]]);

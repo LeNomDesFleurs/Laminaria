@@ -45,7 +45,7 @@ pub use crossterm::{
 
 
 
-fn main() -> anyhow::Result<()> {
+fn main() -> Result<(), Box<dyn Error>> {
     let (parameter_sender, parameter_receiver):(Sender<parameters::Parameter>, Receiver<parameters::Parameter>) = channel();
     let (ui_sender, ui_receiver):(Sender<ui::UiEvent>, Receiver<ui::UiEvent>) = channel();
     let (midi_sender, midi_receiver):(Sender<[u8; 3]>, Receiver<[u8; 3]>) = channel();
