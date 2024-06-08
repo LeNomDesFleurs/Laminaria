@@ -17,6 +17,7 @@ mod outils;
 pub use chorus::Chorus;
 mod textparsing;
 pub use textparsing::TextCharacteristic;
+mod envelope;
 /* This example expose parameter to pass generator of sample.
 Good starting point for integration of cpal into your application.
 */
@@ -31,7 +32,6 @@ use std::env;
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{Receiver, Sender};
-use termion::{event::Key, input::TermRead};
 use crate::cpal::traits::StreamTrait;
 
 pub use crossterm::{

@@ -1,6 +1,5 @@
 use midir::{Ignore, MidiInput, MidiInputConnection};
-use std::io::{self, Read};
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::Sender;
 use std::io::{stdin, stdout, Write};
 use std::error::Error;
 use std::sync::{Arc, Mutex};
@@ -10,7 +9,6 @@ use crate::parameters::Parameter;
 use crate::ui::UiEvent;
 
 pub fn connect_midi(midi_sender: Sender<[u8; 3]>, parameter_clone: Arc<Mutex<HashMap<String, Parameter>>>, parameter_sender: Sender<Parameter>, gui_sender:Sender<UiEvent>) -> Result<MidiInputConnection<()>, Box<dyn Error>> {
-    let mut input = String::new();
     let mut midicc_hash: HashMap<u8, String> = HashMap::new();
     for (name, parameter) in parameter_clone.lock().unwrap().iter(){
         midicc_hash.insert(parameter.midicc, name.to_string());
@@ -46,29 +44,29 @@ pub fn connect_midi(midi_sender: Sender<[u8; 3]>, parameter_clone: Arc<Mutex<Has
     };
 
     println!("\nOpening connection");
-    let in_port_name = midi_in.port_name(in_port)?;
 
     // _conn_in needs to be a named parameter, because it needs to be kept alive until the end of the scope
     let _conn_in = midi_in.connect(
         in_port,
         "midir-read-input",
-        move |stamp, message, _| {
+        move |_stamp, message, _| {
             // println!("{}: {:?} (len = {})", stamp, message, message.len());
             //check if CC
             if message[0]==176{
                 //get parameter name from name table
-                let parameter_name = midicc_hash[&message[1]];
+                let parameter_name = &midicc_hash[&message[1]];
                 //convert midi 127 to orca 36
                 let value = ((message[3]as f32/127.) *36.).floor() as i32;
-                let mut parameter = parameter_clone.lock().unwrap().get_mut(&parameter_name).unwrap();
-
+                let mut parameter_binding = parameter_clone.lock().unwrap();
+                let parameter = parameter_binding.get_mut(parameter_name).unwrap();
                     parameter.value=value;
                     parameter_sender.send(parameter.clone()).unwrap();
                     gui_sender.send(None).unwrap();
                 
             }
             //else send note
-            midi_sender.send([message[0], message[1], message[2]]);
+            // unwrap cause I can't return the error in this closure (so maybe I shouldn't use it here altogether 😬)
+            midi_sender.send([message[0], message[1], message[2]]).unwrap();
         },
         (),
     )?;
