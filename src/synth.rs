@@ -66,17 +66,17 @@ impl Synth {
             //if not playing, start a new note
             None => {
                 if note_on {
-                    self.current_note = Some(midi_note)
+                    self.current_note = Some(midi_note);
+                    self.envelope.note_statut(true);
                 };
-                self.envelope.note_statut(true);
             }
             // if playing, end the note if is the correct noteOff, or change to a new one it is a noteOn
             Some(current_note) => match note_on {
                 false => {
                     if midi_note == current_note {
                         self.current_note = None;
+                        self.envelope.note_statut(false);
                     }
-                    self.envelope.note_statut(false);
                 }
                 true => {
                     if midi_note != current_note {
@@ -131,6 +131,10 @@ impl Synth {
             .modulate(self.buffer.read_sample() * self.osc_to_filter_amp);
         self.oscillator.modulate(self.lfo.tick() * self.lfo_to_osc);
         let mut sample = self.oscillator.tick();
+        //vca
+        let envelope = self.envelope.process();
+        sample *= envelope; 
+        // EFFECTS
         self.buffer.write_sample(sample);
         sample = self.filter.process(sample);
         sample = self.chorus.process(sample);

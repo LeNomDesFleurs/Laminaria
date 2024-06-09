@@ -56,15 +56,12 @@ where
     T: SizedSample + FromSample<f32>,
 {
     let num_channels = config.channels as usize;
-    let args: Vec<String> = std::env::args().collect();
 
     let mut synth = Synth::default(config.sample_rate.0 as f32);
     let err_fn = |err| eprintln!("Error building output sound stream: {}", err);
 
     let time_at_start = std::time::Instant::now();
     println!("Time at start: {:?}", time_at_start);
-    let iterator = 0;
-    let mut amplitude: f32 = 0.;
 //create the audio stream
     let stream = device.build_output_stream(
         config,
@@ -80,14 +77,13 @@ where
             if let Ok(midi) = midi_receiver.try_recv(){
                 if midi[0]==144{
                     synth.set_note(midi[1], true);
-                    amplitude = 1.}
+                }
                 else if midi[0]==128 {
                     synth.set_note(midi[1], false);
-                    amplitude = 0.
                 }
             }
 //process buffer
-            process_frame(output, &mut synth, num_channels, amplitude)
+            process_frame(output, &mut synth, num_channels)
         },
         err_fn,
         None,
@@ -96,14 +92,14 @@ where
     Ok(stream)
 }
 
-fn process_frame<SampleType>(output: &mut [SampleType], synth: &mut Synth, num_channels: usize, amplitude: f32)
+fn process_frame<SampleType>(output: &mut [SampleType], synth: &mut Synth, num_channels: usize)
 where
     SampleType: Sample + FromSample<f32>,
 {
 
     for frame in output.chunks_mut(num_channels) {
         // let value: SampleType = SampleType::from_sample(oscillator.tick());
-        let value: SampleType = SampleType::from_sample(synth.tick()*amplitude);
+        let value: SampleType = SampleType::from_sample(synth.tick());
         // let value: SampleType = SampleType::from_sample(lfo.tick());
         // copy the same value to all channels
         for sample in frame.iter_mut() {

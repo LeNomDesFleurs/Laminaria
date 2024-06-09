@@ -46,17 +46,16 @@ impl Envelope {
         let clamped_time = time.clamp(MINIMUM_ENVELOPE_TIME, MAXIMUM_ENVELOPE_TIME);
         let samples = convert_ms_to_sample(clamped_time, self.sample_rate as f32);
         let step = 1. / samples;
-        if segment == Segment::Attack {
-            self.increment = step
-        }
-        if segment == Segment::Release {
-            self.decrement = step
+        match segment{
+            Segment::Attack => {self.increment = step}
+            Segment::Release => {self.decrement = step}
+            _ => {}
         }
     }
 
     pub fn note_statut(&mut self, note_on: bool) {
         //if note is on and envelope is off, launch envelope
-        if note_on && self.status == Off {
+        if note_on && (self.status == Off || self.status == Attack) {
             self.status = Attack
         }
         //if note is off and envelope is on, jump to release
@@ -67,7 +66,7 @@ impl Envelope {
 
     pub fn process(&mut self) -> f32 {
         match self.status {
-            Off => return 0.,
+            Off => {},
             Attack => {
                 self.value += self.increment;
                 if self.value >= 1. {
@@ -76,7 +75,7 @@ impl Envelope {
             }
             Sustain => {}
             Release => {
-                self.value += self.decrement;
+                self.value -= self.decrement;
                 if self.value <= 0. {
                     self.status = Segment::Off
                 }
