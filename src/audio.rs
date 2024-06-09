@@ -79,10 +79,12 @@ where
 //check for new midi value
             if let Ok(midi) = midi_receiver.try_recv(){
                 if midi[0]==144{
+                    synth.set_note(midi[1], true);
                     amplitude = 1.}
-                    else if midi[0]==128 {
-                        amplitude = 0.
-                    }
+                else if midi[0]==128 {
+                    synth.set_note(midi[1], false);
+                    amplitude = 0.
+                }
             }
 //process buffer
             process_frame(output, &mut synth, num_channels, amplitude)

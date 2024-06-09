@@ -1,11 +1,12 @@
 use std::collections::HashMap;
+use crate::envelope;
 
 
 #[derive(Clone)]
 pub struct Parameter{
         pub name: String,
         pub value: i32,
-        pub midicc: u8,
+        pub midicc: char,
         pub min: f32,
         pub max: f32,
         pub skew: f32,
@@ -80,12 +81,14 @@ impl Parameter{
 pub fn get_parameters()->HashMap<String, Parameter>{
     return HashMap::from([
         //filter
-    ("fil-freq".to_string(), Parameter{name: "fil-freq".to_string(),value:32, midicc:0, min: 20., max: 20000.,skew:0.5}),
+    ("fil-freq".to_string(), Parameter{name: "fil-freq".to_string(),value:32, midicc:'f', min: 20., max: 20000.,skew:0.5}),
         //osc
-    ("osc-freq".to_string(), Parameter{name: "osc-freq".to_string(),value:32, midicc:0, min: 20., max: 20000.,skew:0.5}),
-    ("osc-shape".to_string(), Parameter{name: "pitch".to_string(), value: 32, midicc:0, min:20., max:60., skew:1.}),
-    ("lfo-freq".to_string(), Parameter{name: "lfo-freq".to_string(), value:32, midicc:0, min:0., max:5., skew: 0.5}),
-    ("lfo-period".to_string(), Parameter{name: "lfo-period".to_string(), value:32, midicc:0, min:0., max:5., skew: 0.5}),
-    ("amplitude".to_string(), Parameter{name: "amplitude".to_string(), value:32, midicc:0, min:0., max:1., skew: 1.}),
+    ("osc-tune".to_string(), Parameter{name: "osc-tune".to_string(),value:32, midicc:'0', min: -100., max: 100.,skew:0.5}),
+    ("osc-shape".to_string(), Parameter{name: "pitch".to_string(), value: 32, midicc:'0', min:20., max:60., skew:1.}),
+    ("lfo-freq".to_string(), Parameter{name: "lfo-freq".to_string(), value:32, midicc:'l', min:0., max:5., skew: 0.5}),
+    ("lfo-period".to_string(), Parameter{name: "lfo-period".to_string(), value:32, midicc:'p', min:0., max:5., skew: 0.5}),
+    ("amplitude".to_string(), Parameter{name: "amplitude".to_string(), value:32, midicc:'v', min:0., max:1., skew: 1.}),
+    ("env-atk".to_string(), Parameter{name: "env-atk".to_string(), value: 3, midicc:'a', min: envelope::MINIMUM_ENVELOPE_TIME,  max: envelope::MAXIMUM_ENVELOPE_TIME, skew: 0.5}), 
+    ("env-dcy".to_string(), Parameter{name: "env-dcy".to_string(), value: 3, midicc:'d', min: envelope::MINIMUM_ENVELOPE_TIME,  max: envelope::MAXIMUM_ENVELOPE_TIME, skew: 0.5}), 
     ])
 }

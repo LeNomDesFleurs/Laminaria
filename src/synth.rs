@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 
+use crate::envelope::Envelope;
 use crate::filter::FilterType;
+use crate::midi;
 use crate::oscillator::Waveform;
-use crate::parameters::get_parameters;
+use crate::outils::midi_to_frequence;
 use crate::parameters;
+use crate::parameters::get_parameters;
 use crate::Biquad;
 use crate::Chorus;
 use crate::HarmonicOscillator;
@@ -12,12 +15,14 @@ use crate::RingBuffer;
 use crate::TextCharacteristic;
 
 pub struct Synth {
+    current_note: Option<u8>,
+    envelope: Envelope,
     filter: Biquad,
     oscillator: HarmonicOscillator,
     lfo: Lfo,
     chorus: Chorus,
     buffer: RingBuffer,
-   pub parameters: HashMap<String, parameters::Parameter>,
+    pub parameters: HashMap<String, parameters::Parameter>,
     // parameters: Parameters,
     routing_delay_time: f32,
     osc_to_filter_amp: f32,
@@ -42,9 +47,11 @@ pub struct Parameters {
 impl Synth {
     pub fn default(sample_rate: f32) -> Self {
         Synth {
+            current_note: None,
             filter: Biquad::default(sample_rate, FilterType::LPF, 1000., 0.707),
+            envelope: Envelope::new(sample_rate as i32),
             lfo: Lfo::build_lfo(0.2, sample_rate),
-            oscillator: HarmonicOscillator::default(sample_rate, 500., 0.2),
+            oscillator: HarmonicOscillator::new(sample_rate, 500., 0.2),
             buffer: RingBuffer::default(sample_rate, 0.05),
             chorus: Chorus::default(sample_rate),
             routing_delay_time: 0.5,
@@ -52,6 +59,34 @@ impl Synth {
             lfo_to_osc: 0.1,
             parameters: get_parameters(),
             // parameters: Parameters {},
+        }
+    }
+    pub fn set_note(&mut self, midi_note: u8, note_on: bool) {
+        match self.current_note {
+            //if not playing, start a new note
+            None => {
+                if note_on {
+                    self.current_note = Some(midi_note)
+                };
+                self.envelope.note_statut(true);
+            }
+            // if playing, end the note if is the correct noteOff, or change to a new one it is a noteOn
+            Some(current_note) => match note_on {
+                false => {
+                    if midi_note == current_note {
+                        self.current_note = None;
+                    }
+                    self.envelope.note_statut(false);
+                }
+                true => {
+                    if midi_note != current_note {
+                        self.current_note = Some(midi_note);
+                    }
+                }
+            },
+        }
+        if self.current_note != None {
+            self.oscillator.set_note(self.current_note.clone().unwrap())
         }
     }
 
@@ -117,20 +152,23 @@ impl Synth {
             .set_freq_and_shape(parameters.lfo_freq, parameters.lfo_shape);
     }
 
-    pub fn set_parameters2(&mut self){
-
-        self.filter.set_frequency(self.parameters["fil-freq"].get_raw_value());
+    pub fn set_parameters2(&mut self) {
+        self.filter
+            .set_frequency(self.parameters["fil-freq"].get_raw_value());
         self.oscillator.set_parameters(
-            self.parameters["osc-freq"].get_raw_value(),
+            self.parameters["osc-tune"].get_raw_value(),
             Waveform::Sine,
             self.parameters["lfo-freq"].get_raw_value(),
             self.parameters["lfo-period"].get_raw_value(),
         );
         self.buffer.set_delay_time(self.routing_delay_time);
-        self.chorus
-            .set_parameters(0.5, 0.1);
-        self.lfo
-            .set_freq_and_shape(self.parameters["lfo-freq"].get_raw_value(), Waveform::Square);
+        self.chorus.set_parameters(0.5, 0.1);
+        self.lfo.set_freq_and_shape(
+            self.parameters["lfo-freq"].get_raw_value(),
+            Waveform::Square,
+        );
+        self.envelope.set_attack(self.parameters["env-atk"].get_raw_value());
+        self.envelope.set_release(self.parameters["env-dcy"].get_raw_value());
         
     }
 }

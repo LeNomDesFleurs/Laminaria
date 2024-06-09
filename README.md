@@ -11,3 +11,5 @@ Lib :
 - cpal for audio
 - midir for midi
 - cross term for terminal I/O
+
+![picture](/Laminaria.jpg)

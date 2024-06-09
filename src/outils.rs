@@ -15,9 +15,17 @@
 /// @param slew_factor a bigger slew factor means a slower change, must be <1 to
 /// keep stability
 /// @return
+/// 
+
+
+static ORCA_CHARACTERS: [char; 36] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'];
 
 pub fn slew_value(new_value: f32, old_value: f32, slew_factor: f32) -> f32 {
     return (new_value * (1.0 - slew_factor)) + (old_value * (slew_factor));
+}
+
+pub fn midi_to_frequence(midi_note: u8)->f32{
+    return 440. * f32::powf(2., (midi_note as f32-69.)/12.);
 }
 
 /// @brief convert milliseconds to samples
@@ -58,4 +66,28 @@ pub fn equal_power_crossfade(dry: f32, wet: f32, mut parameter: f32) -> f32 {
     let volumes_dry = (0.5 * (1. + parameter)).sqrt();
     let volumes_wet = (0.5 * (1. - parameter)).sqrt();
     return (dry * volumes_dry) + (wet * volumes_wet);
+}
+
+pub fn get_orca_character(value: i32)->char{
+    if value <0 || value >35 {panic!("orca value cannot be inferior to 0 and superior to 35")}
+    return ORCA_CHARACTERS[value as usize];
+}
+
+pub fn get_orca_integer(character: char)->u8{
+    for i in 0..35 {
+        if character == ORCA_CHARACTERS[i]{return i as u8}
+    }
+    panic!("orca char should be 0..10 or a..z, out of scope value received")
+}
+
+#[cfg(test)]
+mod test {
+    use crate::outils::ORCA_CHARACTERS;
+
+    #[test]
+    fn basics() {
+        let value = 0;
+        print!("{}", ORCA_CHARACTERS[value as usize]);
+        // Check empty list behaves right
+    }
 }

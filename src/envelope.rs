@@ -1,10 +1,10 @@
 use crate::envelope::Segment::{Attack, Off, Release, Sustain};
 use crate::outils::convert_ms_to_sample;
 //in milliseconds
-static MAXIMUM_ENVELOPE_TIME: f32 = 10000.;
-static MINIMUM_ENVELOPE_TIME: f32 = 10.;
+pub static MAXIMUM_ENVELOPE_TIME: f32 = 10000.;
+pub static MINIMUM_ENVELOPE_TIME: f32 = 10.;
 
-struct Envelope {
+pub struct Envelope {
     value: f32,
     status: Segment,
     //in sample

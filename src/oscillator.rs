@@ -1,3 +1,5 @@
+use crate::outils::midi_to_frequence;
+
 pub enum Waveform {
     Sine,
     Square,
@@ -82,6 +84,7 @@ impl Lfo {
 pub struct HarmonicOscillator {
     //Parameter
     waveform: Waveform,
+    tune: f32,
     frequency_hz: f32,
     lfo_frequency: f32,
     number_of_periods: f32,
@@ -94,13 +97,14 @@ pub struct HarmonicOscillator {
 }
 
 impl HarmonicOscillator {
-    pub fn default(sample_rate: f32, frequency_hz: f32, lfo_frequency: f32) -> Self {
+    pub fn new(sample_rate: f32, frequency_hz: f32, lfo_frequency: f32) -> Self {
         HarmonicOscillator {
             sample_rate,
             frequency_hz,
             lfo_frequency,
             number_of_periods: 1.,
             waveform: Waveform::Saw,
+            tune: 0.,
             current_sample_index: 0.,
             lfo_current_sample_index: 0.,
             number_of_harmonics: 1.,
@@ -108,14 +112,18 @@ impl HarmonicOscillator {
         }
     }
 
+    pub fn set_note(&mut self, midi_note: u8) {
+        self.frequency_hz = midi_to_frequence(midi_note);
+    }
+
     pub fn set_parameters(
         &mut self,
-        frequency_hz: f32,
+        tune: f32,
         waveform: Waveform,
         lfo_frequency: f32,
         number_of_periods: f32,
     ) {
-        self.frequency_hz = frequency_hz;
+        self.tune = tune;
         self.lfo_frequency = lfo_frequency;
         self.waveform = waveform;
         self.number_of_periods = number_of_periods;

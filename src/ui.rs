@@ -64,8 +64,8 @@ pub fn interaction(parameters: Arc<Mutex<HashMap<String, Parameter>>>, param_sen
             }
             KeyCode::Down => {selected += 1; selected=selected.clamp(0, number_of_parameters as i32-1);},
             KeyCode::Up => {selected -= 1; selected=selected.clamp(0, number_of_parameters as i32-1);},
-            KeyCode::Left => {parameters_modified=Some(ParameterModified::Increment)}
-            KeyCode::Right => {parameters_modified = Some(ParameterModified::Decrement)}
+            KeyCode::Right => {parameters_modified=Some(ParameterModified::Increment)}
+            KeyCode::Left => {parameters_modified = Some(ParameterModified::Decrement)}
             KeyCode::Char(char) => {parameters_modified=Some(ParameterModified::SetValue(char))}
             // Key::Ctrl('q') => self.should_quit = true,
             _ => {},

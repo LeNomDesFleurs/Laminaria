@@ -4,6 +4,7 @@ use std::io::{stdin, stdout, Write};
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
+use crate::outils;
 
 use crate::parameters::Parameter;
 use crate::ui::UiEvent;
@@ -11,7 +12,7 @@ use crate::ui::UiEvent;
 pub fn connect_midi(midi_sender: Sender<[u8; 3]>, parameter_clone: Arc<Mutex<HashMap<String, Parameter>>>, parameter_sender: Sender<Parameter>, gui_sender:Sender<UiEvent>) -> Result<MidiInputConnection<()>, Box<dyn Error>> {
     let mut midicc_hash: HashMap<u8, String> = HashMap::new();
     for (name, parameter) in parameter_clone.lock().unwrap().iter(){
-        midicc_hash.insert(parameter.midicc, name.to_string());
+        midicc_hash.insert(outils::get_orca_integer(parameter.midicc), name.to_string());
     }
 
     let mut midi_in = MidiInput::new("midir reading input")?;
@@ -53,16 +54,19 @@ pub fn connect_midi(midi_sender: Sender<[u8; 3]>, parameter_clone: Arc<Mutex<Has
             // println!("{}: {:?} (len = {})", stamp, message, message.len());
             //check if CC
             if message[0]==176{
-                //get parameter name from name table
-                let parameter_name = &midicc_hash[&message[1]];
-                //convert midi 127 to orca 36
-                let value = ((message[3]as f32/127.) *36.).floor() as i32;
-                let mut parameter_binding = parameter_clone.lock().unwrap();
-                let parameter = parameter_binding.get_mut(parameter_name).unwrap();
-                    parameter.value=value;
-                    parameter_sender.send(parameter.clone()).unwrap();
-                    gui_sender.send(None).unwrap();
-                
+                //try to get parameter name from name table
+                match midicc_hash.get(&message[1]) {
+                    Some(parameter_name) =>{
+                    //convert midi 127 to orca 36
+                    let value = ((message[2] as f32/127.) *36.).floor() as i32;
+                    let mut parameter_binding = parameter_clone.lock().unwrap();
+                    let parameter = parameter_binding.get_mut(parameter_name).unwrap();
+                        parameter.value=value;
+                        parameter_sender.send(parameter.clone()).unwrap();
+                        gui_sender.send(None).unwrap();}
+                    //if cc is not bounded, do nothing
+                    None=>{}
+                }
             }
             //else send note
             // unwrap cause I can't return the error in this closure (so maybe I shouldn't use it here altogether 😬)
