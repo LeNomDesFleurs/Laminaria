@@ -10,7 +10,7 @@ impl Chorus {
     pub fn default(sample_rate: f32) -> Self {
         Chorus {
             lfo: Lfo::build_lfo(0.2, sample_rate),
-            buffer: RingBuffer::default(sample_rate, 0.050),
+            buffer: RingBuffer::new(sample_rate, 0.050),
             amplitude: 0.1,
         }
     }

@@ -27,7 +27,7 @@ pub struct RingBuffer {
 
 impl RingBuffer {
     ///Buffer size in seconds
-    pub fn default(sample_rate: f32, max_time: f32) -> Self {
+    pub fn new(sample_rate: f32, max_time: f32) -> Self {
         let buffer_size: usize = (sample_rate * max_time) as usize;
 
         RingBuffer {
@@ -63,7 +63,7 @@ impl RingBuffer {
         }
     }
 
-    /// @brief increment read pointer and return sample from interpolation
+    /// increment read pointer and return sample from interpolation
     pub fn read_sample(&mut self) -> f32 {
         if self.reverse {
             self.step_size = 0. - self.step_size;
@@ -73,7 +73,7 @@ impl RingBuffer {
             self.freeze_increment_read_pointer();
             self.freezed_update_step_size();
         } else {
-            // self.update_step_size();
+            self.update_step_size();
             self.increment_read_pointer();
         }
 
@@ -93,14 +93,14 @@ impl RingBuffer {
         self.output_sample = self.buffer[self.i_read as usize];
     }
 
-    /// @brief Interpolation lineaire du buffer a un index flottant donne
+    /// Interpolation lineaire du buffer a un index flottant donne
     fn linear_interpolation(&mut self) {
         // S[n]=frac * Buf[i+1]+(1-frac)*Buf[i]
         self.output_sample = (self.frac * self.buffer[self.i_read_next as usize])
             + ((1. - self.frac) * self.buffer[self.i_read as usize]);
     }
 
-    /// @brief Interpolation passe-tout, recursion
+    /// Interpolation passe-tout, recursion
     fn allpass_interpolation(&mut self) {
         // S[n]=Buf[i+1]+(1-frac)*Buf[i]-(1-frac)*S[n-1]
         self.output_sample = (self.buffer[(self.i_read + 1) as usize])
@@ -108,8 +108,8 @@ impl RingBuffer {
             - ((1. - self.frac) * self.output_sample);
     }
 
-    /// @brief increment write pointer and write input sample in buffer
-    /// @param input_sample
+    /// increment write pointer and write input sample in buffer
+    /// input_sample
     pub fn write_sample(&mut self, input_sample: f32) {
         if !self.freezed {
             if self.write > (self.buffer_size - 1) as f32 {
@@ -126,7 +126,7 @@ impl RingBuffer {
         self.step_size = step_size;
     }
 
-    /// @brief Triggered at each sample, update the step size and the self.actual_size
+    /// Triggered at each sample, update the step size and the self.actual_size
     /// to keep up with change of size goal
     fn update_step_size(&mut self) {
         let correction_offset: f32 = 0.;
@@ -161,9 +161,9 @@ impl RingBuffer {
         // }
     }
 
-    /// @brief Take a delay time in milliseconds, clip it within the defined max
+    /// Take a delay time in milliseconds, clip it within the defined max
     /// buffer size and set the goal to reach.
-    /// @param delay_time in milliseconds
+    /// delay_time in milliseconds
     pub fn set_delay_time(&mut self, delay_time: f32) {
         let delay_in_samples: i32 =
             outils::convert_ms_to_sample(delay_time, self.sample_rate) as i32;
@@ -222,5 +222,39 @@ impl RingBuffer {
             self.read = self.write;
             self.actual_size = 0.;
         }
+    }
+}
+
+pub static MAXIMUM_DELAY_TIME: f32 = 10.;
+pub static MINIMUM_DELAY_TIME: f32 = 0.01;
+pub struct DelayLine {
+    buffer: RingBuffer,
+    feedback: f32,
+}
+
+impl DelayLine {
+    //max_time in seconds
+    pub fn new(sample_rate: f32, max_time: f32)->Self{
+        DelayLine{
+            buffer: RingBuffer::new(sample_rate, max_time),
+            feedback: 0.5,
+        }
+    }
+
+    pub fn process(&mut self, input_sample: f32)->f32{
+
+        let output_sample = self.buffer.read_sample();
+
+        self.buffer.write_sample(input_sample + (output_sample * self.feedback));
+
+        output_sample
+    }
+    //time in seconds
+    pub fn set_time(&mut self, delay_time: f32){
+        self.buffer.set_delay_time(delay_time*1000.);
+    }
+
+    pub fn set_feedback(&mut self, feedback: f32){
+        self.feedback = feedback;
     }
 }

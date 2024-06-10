@@ -12,7 +12,7 @@ use crate::ui::UiEvent;
 pub fn connect_midi(midi_sender: Sender<[u8; 3]>, parameter_clone: Arc<Mutex<HashMap<String, Parameter>>>, parameter_sender: Sender<Parameter>, gui_sender:Sender<UiEvent>) -> Result<MidiInputConnection<()>, Box<dyn Error>> {
     let mut midicc_hash: HashMap<u8, String> = HashMap::new();
     for (name, parameter) in parameter_clone.lock().unwrap().iter(){
-        midicc_hash.insert(outils::get_orca_integer(parameter.midicc), name.to_string());
+        midicc_hash.insert(outils::get_orca_integer(parameter.midicc).unwrap_or(0), name.to_string());
     }
 
     let mut midi_in = MidiInput::new("midir reading input")?;

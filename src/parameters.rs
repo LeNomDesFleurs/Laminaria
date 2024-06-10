@@ -1,5 +1,7 @@
 use std::collections::HashMap;
+use crate::buffer;
 use crate::envelope;
+use crate::outils;
 
 
 #[derive(Clone)]
@@ -16,16 +18,24 @@ impl Parameter{
 
     pub fn build_string(&self)->String{
         let mut string:String = Default::default();
+        //CC
         string += &self.midicc.to_string();
         string += " - ";
+        //NAME
         string += &self.name;
+        //MARGIN
         for _i in 0..10-&self.name.len(){
             string+=" ";
         }
         string += " - ";
-        string += &self.get_orca_letter();
+        //value in orca numbers
+        string += &outils::get_orca_character(self.value).unwrap_or('0').to_string();
         string += " - ";
+        //value vizualisation
         string += &self.display_value();
+        //raw value
+        string += " ";
+        string += &format!("{:.2}", self.get_raw_value()).to_string();
         return string;
     
     //get lenght après le nom pour les valeur arrive au même endroit (voir mêem centrer le non des variables ?)
@@ -49,46 +59,48 @@ impl Parameter{
         self.value = self.value.clamp(0, 35);
     }
     
-    fn get_orca_letter(&self)->String{
-        let value = self.value.clamp(0, 35);
-        let letter_array: [&str; 36] = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"];
-        return letter_array[value as usize].to_string();
-    }
-    
     fn display_value(&self)->String{
         let mut string:String = Default::default();
         for i in 0..35{
-            if i <=self.value{
+            if i < self.value{
                 string+="|";
             }
-            if i > self.value {
+            if i >= self.value {
                 string+="-";
             }
         }
         return string;
     }
-    pub fn set_value(&mut self, char:char){
-        let letter_array: [&str; 36] = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"];
-        for i in 0..36{
-            if char == letter_array[i].chars().next().expect("string is empty"){
-                self.value = i as i32;
-                break;
-            }
-        }
+    pub fn set_value(&mut self, character:char){
+        self.value = outils::get_orca_integer(character).unwrap_or(self.value as u8) as i32;
     }
 }
+
+// #[macro_export]
+// macro_rules! make_param {
+//     ( $name: literal, $value: literal, $midicc: literal, $min: literal, $max: literal, $skew: literal) => {
+//         {
+//     ($name.to_string(), Parameter{name: $name.to_string(), value:$value, midicc:$midicc, min: 20., max: 20000.,skew:0.5})
+//         }
+//     };
+// }
 
 pub fn get_parameters()->HashMap<String, Parameter>{
     return HashMap::from([
         //filter
+    // make_param!("fil_freq", 32, 'f', 20., 20000., 0.5),
     ("fil-freq".to_string(), Parameter{name: "fil-freq".to_string(),value:32, midicc:'f', min: 20., max: 20000.,skew:0.5}),
         //osc
     ("osc-tune".to_string(), Parameter{name: "osc-tune".to_string(),value:32, midicc:'0', min: -100., max: 100.,skew:0.5}),
     ("osc-shape".to_string(), Parameter{name: "pitch".to_string(), value: 32, midicc:'0', min:20., max:60., skew:1.}),
     ("lfo-freq".to_string(), Parameter{name: "lfo-freq".to_string(), value:32, midicc:'l', min:0., max:5., skew: 0.5}),
     ("lfo-period".to_string(), Parameter{name: "lfo-period".to_string(), value:32, midicc:'p', min:0., max:5., skew: 0.5}),
-    ("amplitude".to_string(), Parameter{name: "amplitude".to_string(), value:32, midicc:'v', min:0., max:1., skew: 1.}),
-    ("env-atk".to_string(), Parameter{name: "env-atk".to_string(), value: 3, midicc:'a', min: envelope::MINIMUM_ENVELOPE_TIME,  max: envelope::MAXIMUM_ENVELOPE_TIME, skew: 0.5}), 
-    ("env-dcy".to_string(), Parameter{name: "env-dcy".to_string(), value: 3, midicc:'d', min: envelope::MINIMUM_ENVELOPE_TIME,  max: envelope::MAXIMUM_ENVELOPE_TIME, skew: 0.5}), 
+    ("volume".to_string(), Parameter{name: "volume".to_string(), value:32, midicc:'v', min:0., max:1., skew: 2.}),
+    ("env-atk".to_string(), Parameter{name: "env-atk".to_string(), value: 3, midicc:'a', min: envelope::MINIMUM_ENVELOPE_TIME,  max: envelope::MAXIMUM_ENVELOPE_TIME, skew: 2.}), 
+    ("env-dcy".to_string(), Parameter{name: "env-dcy".to_string(), value: 3, midicc:'d', min: envelope::MINIMUM_ENVELOPE_TIME,  max: envelope::MAXIMUM_ENVELOPE_TIME, skew: 2.}), 
+    ("dly-time".to_string(), Parameter{name: "dly-time".to_string(), value:4, midicc:'t', min: buffer::MINIMUM_DELAY_TIME, max: buffer::MAXIMUM_DELAY_TIME, skew: 2. }),
+    ("dly-feed".to_string(), Parameter{name: "dly-feed".to_string(), value:4, midicc:'f', min: 0., max: 0.99, skew: 1. }),
+    ("dly-wet".to_string(), Parameter{name: "dly-wet".to_string(), value:15, midicc:'w', min: 0., max:1., skew:1.}),
+    //test
     ])
 }

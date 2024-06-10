@@ -22,13 +22,10 @@ mod envelope;
 Good starting point for integration of cpal into your application.
 */
 
-use std::io::{self, Read};
 use std::error::Error;
-use std::io::{stdin, stdout, Write};
 extern crate anyhow;
 extern crate clap;
 extern crate cpal;
-use std::env;
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{Receiver, Sender};
@@ -48,11 +45,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let (ui_sender, ui_receiver):(Sender<ui::UiEvent>, Receiver<ui::UiEvent>) = channel();
     let (midi_sender, midi_receiver):(Sender<[u8; 3]>, Receiver<[u8; 3]>) = channel();
 
-    let mut parameters = parameters::get_parameters(); 
-    let mut parameters_mutex = Arc::new(Mutex::new(parameters));
-    let mut parameters_clone_ui = parameters_mutex.clone();
-    let mut parameters_clone_midi = parameters_mutex.clone();
-    let mut parameters_clone_interaction = parameters_mutex.clone();
+    let parameters = parameters::get_parameters(); 
+    let parameters_mutex = Arc::new(Mutex::new(parameters));
+    let parameters_clone_ui = parameters_mutex.clone();
+    let parameters_clone_midi = parameters_mutex.clone();
+    let parameters_clone_interaction = parameters_mutex.clone();
 
     let ui_sender_interaction_thread = ui_sender.clone();
     let ui_sender_midi_thread = ui_sender.clone();

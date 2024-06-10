@@ -81,6 +81,7 @@ impl Envelope {
                 }
             }
         }
-        return self.value
+        return self.value;
+        // .powf(0.7);
     }
 }

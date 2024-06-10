@@ -59,7 +59,8 @@ pub fn map_value(value: f32, in_min: f32, in_max: f32, out_min: f32, out_max: f3
 pub fn linear_crossfade(dry: f32, wet: f32, parameter: f32) -> f32 {
     return (dry * (1.0 - parameter)) + (wet * parameter);
 }
-
+/// 0 -> dry
+/// 1 -> wet
 pub fn equal_power_crossfade(dry: f32, wet: f32, mut parameter: f32) -> f32 {
     parameter = 1. - parameter;
     parameter = (parameter - 0.5) * 2.;
@@ -68,16 +69,15 @@ pub fn equal_power_crossfade(dry: f32, wet: f32, mut parameter: f32) -> f32 {
     return (dry * volumes_dry) + (wet * volumes_wet);
 }
 
-pub fn get_orca_character(value: i32)->char{
-    if value <0 || value >35 {panic!("orca value cannot be inferior to 0 and superior to 35")}
-    return ORCA_CHARACTERS[value as usize];
+pub fn get_orca_character(value: i32)->Option<char>{
+    return ORCA_CHARACTERS.get(value as usize).copied();
 }
 
-pub fn get_orca_integer(character: char)->u8{
+pub fn get_orca_integer(character: char)->Option<u8>{
     for i in 0..35 {
-        if character == ORCA_CHARACTERS[i]{return i as u8}
+        if character == ORCA_CHARACTERS[i]{return Some(i as u8)}
     }
-    panic!("orca char should be 0..10 or a..z, out of scope value received")
+    None
 }
 
 #[cfg(test)]

@@ -1,30 +1,51 @@
-
+use crate::parameters::Parameter;
+use crate::Synth;
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     SizedSample,
 };
 use cpal::{FromSample, Sample};
-use std::sync::mpsc::{Receiver, SyncSender};
-use crate::parameters::Parameter;
-use crate::Synth;
-use std::collections::HashMap;
+use std::sync::mpsc::Receiver;
 
-pub fn stream_setup_for(parameter_receiver: Receiver<Parameter>, midi_receiver: Receiver<[u8;3]>) -> Result<cpal::Stream, anyhow::Error>
+pub fn stream_setup_for(
+    parameter_receiver: Receiver<Parameter>,
+    midi_receiver: Receiver<[u8; 3]>,
+) -> Result<cpal::Stream, anyhow::Error>
 where
 {
     let (_host, device, config) = host_device_setup()?;
 
     match config.sample_format() {
-        cpal::SampleFormat::I8 => make_stream::<i8>(&device, &config.into(), parameter_receiver, midi_receiver),
-        cpal::SampleFormat::I16 => make_stream::<i16>(&device, &config.into(), parameter_receiver, midi_receiver),
-        cpal::SampleFormat::I32 => make_stream::<i32>(&device, &config.into(), parameter_receiver, midi_receiver),
-        cpal::SampleFormat::I64 => make_stream::<i64>(&device, &config.into(), parameter_receiver, midi_receiver),
-        cpal::SampleFormat::U8 => make_stream::<u8>(&device, &config.into(), parameter_receiver, midi_receiver),
-        cpal::SampleFormat::U16 => make_stream::<u16>(&device, &config.into(), parameter_receiver, midi_receiver),
-        cpal::SampleFormat::U32 => make_stream::<u32>(&device, &config.into(), parameter_receiver, midi_receiver),
-        cpal::SampleFormat::U64 => make_stream::<u64>(&device, &config.into(), parameter_receiver, midi_receiver),
-        cpal::SampleFormat::F32 => make_stream::<f32>(&device, &config.into(), parameter_receiver, midi_receiver),
-        cpal::SampleFormat::F64 => make_stream::<f64>(&device, &config.into(), parameter_receiver, midi_receiver),
+        cpal::SampleFormat::I8 => {
+            make_stream::<i8>(&device, &config.into(), parameter_receiver, midi_receiver)
+        }
+        cpal::SampleFormat::I16 => {
+            make_stream::<i16>(&device, &config.into(), parameter_receiver, midi_receiver)
+        }
+        cpal::SampleFormat::I32 => {
+            make_stream::<i32>(&device, &config.into(), parameter_receiver, midi_receiver)
+        }
+        cpal::SampleFormat::I64 => {
+            make_stream::<i64>(&device, &config.into(), parameter_receiver, midi_receiver)
+        }
+        cpal::SampleFormat::U8 => {
+            make_stream::<u8>(&device, &config.into(), parameter_receiver, midi_receiver)
+        }
+        cpal::SampleFormat::U16 => {
+            make_stream::<u16>(&device, &config.into(), parameter_receiver, midi_receiver)
+        }
+        cpal::SampleFormat::U32 => {
+            make_stream::<u32>(&device, &config.into(), parameter_receiver, midi_receiver)
+        }
+        cpal::SampleFormat::U64 => {
+            make_stream::<u64>(&device, &config.into(), parameter_receiver, midi_receiver)
+        }
+        cpal::SampleFormat::F32 => {
+            make_stream::<f32>(&device, &config.into(), parameter_receiver, midi_receiver)
+        }
+        cpal::SampleFormat::F64 => {
+            make_stream::<f64>(&device, &config.into(), parameter_receiver, midi_receiver)
+        }
         sample_format => Err(anyhow::Error::msg(format!(
             "Unsupported sample format '{sample_format}'"
         ))),
@@ -50,7 +71,7 @@ pub fn make_stream<T>(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
     interface_receiver: Receiver<Parameter>,
-    midi_receiver: Receiver<[u8;3]>,
+    midi_receiver: Receiver<[u8; 3]>,
 ) -> Result<cpal::Stream, anyhow::Error>
 where
     T: SizedSample + FromSample<f32>,
@@ -62,10 +83,10 @@ where
 
     let time_at_start = std::time::Instant::now();
     println!("Time at start: {:?}", time_at_start);
-//create the audio stream
+    //create the audio stream
     let stream = device.build_output_stream(
         config,
-//check for new parameter values
+        //check for new parameter values
         move |output: &mut [T], _: &cpal::OutputCallbackInfo| {
             if let Ok(parameter) = interface_receiver.try_recv() {
                 let name = &parameter.name;
@@ -73,16 +94,15 @@ where
                     *x = parameter;
                 }
             }
-//check for new midi value
-            if let Ok(midi) = midi_receiver.try_recv(){
-                if midi[0]==144{
+            //check for new midi value
+            if let Ok(midi) = midi_receiver.try_recv() {
+                if midi[0] == 144 {
                     synth.set_note(midi[1], true);
-                }
-                else if midi[0]==128 {
+                } else if midi[0] == 128 {
                     synth.set_note(midi[1], false);
                 }
             }
-//process buffer
+            //process buffer
             process_frame(output, &mut synth, num_channels)
         },
         err_fn,
@@ -96,10 +116,9 @@ fn process_frame<SampleType>(output: &mut [SampleType], synth: &mut Synth, num_c
 where
     SampleType: Sample + FromSample<f32>,
 {
-
     for frame in output.chunks_mut(num_channels) {
         // let value: SampleType = SampleType::from_sample(oscillator.tick());
-        let value: SampleType = SampleType::from_sample(synth.tick());
+        let value: SampleType = SampleType::from_sample(synth.process());
         // let value: SampleType = SampleType::from_sample(lfo.tick());
         // copy the same value to all channels
         for sample in frame.iter_mut() {
@@ -109,8 +128,3 @@ where
         // println!("{}", iterator)
     }
 }
-
-fn die(e: &std::io::Error) {
-    panic!("{}", e);
-}
-
