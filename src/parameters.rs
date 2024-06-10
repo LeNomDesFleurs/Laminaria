@@ -15,7 +15,6 @@ pub struct Parameter{
 }
 
 impl Parameter{
-
     pub fn build_string(&self)->String{
         let mut string:String = Default::default();
         //CC
@@ -92,15 +91,18 @@ pub fn get_parameters()->HashMap<String, Parameter>{
     ("fil-freq".to_string(), Parameter{name: "fil-freq".to_string(),value:32, midicc:'f', min: 20., max: 20000.,skew:0.5}),
         //osc
     ("osc-tune".to_string(), Parameter{name: "osc-tune".to_string(),value:32, midicc:'0', min: -100., max: 100.,skew:0.5}),
-    ("osc-shape".to_string(), Parameter{name: "pitch".to_string(), value: 32, midicc:'0', min:20., max:60., skew:1.}),
+    ("osc-nbhrm".to_string(), Parameter{name: "osc-nbhrm".to_string(), value: 32, midicc:'h', min:0., max:2., skew:1.}),
+    ("osc-hrmgn".to_string(), Parameter{name: "osc-hrmgn".to_string(), value: 32, midicc:'g', min:0.01, max:3., skew:1.}),
     ("lfo-freq".to_string(), Parameter{name: "lfo-freq".to_string(), value:32, midicc:'l', min:0., max:5., skew: 0.5}),
     ("lfo-period".to_string(), Parameter{name: "lfo-period".to_string(), value:32, midicc:'p', min:0., max:5., skew: 0.5}),
-    ("volume".to_string(), Parameter{name: "volume".to_string(), value:32, midicc:'v', min:0., max:1., skew: 2.}),
+    //envelop
     ("env-atk".to_string(), Parameter{name: "env-atk".to_string(), value: 3, midicc:'a', min: envelope::MINIMUM_ENVELOPE_TIME,  max: envelope::MAXIMUM_ENVELOPE_TIME, skew: 2.}), 
     ("env-dcy".to_string(), Parameter{name: "env-dcy".to_string(), value: 3, midicc:'d', min: envelope::MINIMUM_ENVELOPE_TIME,  max: envelope::MAXIMUM_ENVELOPE_TIME, skew: 2.}), 
+    //Delay
     ("dly-time".to_string(), Parameter{name: "dly-time".to_string(), value:4, midicc:'t', min: buffer::MINIMUM_DELAY_TIME, max: buffer::MAXIMUM_DELAY_TIME, skew: 2. }),
     ("dly-feed".to_string(), Parameter{name: "dly-feed".to_string(), value:4, midicc:'f', min: 0., max: 0.99, skew: 1. }),
     ("dly-wet".to_string(), Parameter{name: "dly-wet".to_string(), value:15, midicc:'w', min: 0., max:1., skew:1.}),
-    //test
+    //global
+    ("volume".to_string(), Parameter{name: "volume".to_string(), value:32, midicc:'v', min:0., max:1., skew: 2.}),
     ])
 }

@@ -83,17 +83,19 @@ impl Lfo {
 
 pub struct HarmonicOscillator {
     //Parameter
-    waveform: Waveform,
-    tune: f32,
-    frequency_hz: f32,
-    lfo_frequency: f32,
-    number_of_periods: f32,
+    pub tune: f32,
+    pub frequency_hz: f32,
+    pub lfo_frequency: f32,
+    pub number_of_periods: f32,
     //computation variable
     sample_rate: f32,
-    current_sample_index: f32,
+    pub current_sample_index: f32,
     lfo_current_sample_index: f32,
     number_of_harmonics: f32,
     modulation: f32,
+    //waveform description, sqr is 2 / 1, tri is 2 / 2
+    pub harmonic_index_increment: f32,
+    pub harmonic_gain_exponent: f32,
 }
 
 impl HarmonicOscillator {
@@ -103,12 +105,13 @@ impl HarmonicOscillator {
             frequency_hz,
             lfo_frequency,
             number_of_periods: 1.,
-            waveform: Waveform::Saw,
             tune: 0.,
             current_sample_index: 0.,
             lfo_current_sample_index: 0.,
             number_of_harmonics: 1.,
             modulation: 0.,
+            harmonic_gain_exponent: 1.,
+            harmonic_index_increment: 1.,
         }
     }
 
@@ -116,27 +119,10 @@ impl HarmonicOscillator {
         self.frequency_hz = midi_to_frequence(midi_note);
     }
 
-    pub fn set_parameters(
-        &mut self,
-        tune: f32,
-        waveform: Waveform,
-        lfo_frequency: f32,
-        number_of_periods: f32,
-    ) {
-        self.tune = tune;
-        self.lfo_frequency = lfo_frequency;
-        self.waveform = waveform;
-        self.number_of_periods = number_of_periods;
-    }
-
     fn advance_sample(&mut self) {
         self.current_sample_index = (self.current_sample_index + 1.0) % self.sample_rate;
         self.lfo_current_sample_index =
             (self.lfo_current_sample_index + (self.lfo_frequency / self.sample_rate)) % 1.0;
-    }
-
-    fn set_waveform(&mut self, waveform: Waveform) {
-        self.waveform = waveform;
     }
 
     fn get_lfo_gain(&self, mut index: f32) -> f32 {
@@ -160,13 +146,13 @@ impl HarmonicOscillator {
         self.calculate_sine_output_from_freq(self.frequency_hz)
     }
 
-    fn generative_waveform(&mut self, harmonic_index_increment: i32, gain_exponent: f32) -> f32 {
+    pub fn process(&mut self) -> f32 {
         self.advance_sample();
         let mut output = 0.0;
-        let mut i = 1;
+        let mut i = 1.;
         let mut number_of_harmonics = 1.0;
         while !self.is_multiple_of_freq_above_nyquist(i as f32) {
-            let gain = 1.0 / (i as f32).powf(gain_exponent);
+            let gain = 1.0 / (i as f32).powf(self.harmonic_gain_exponent);
             let lfo_gain = self.get_lfo_gain(number_of_harmonics);
             let sine = self.calculate_sine_output_from_freq(
                 (self.frequency_hz + self.modulation).clamp(20., 20000.) * (i as f32),
@@ -176,32 +162,11 @@ impl HarmonicOscillator {
             // * self.calculate_sine_output_from_freq(
             //     (self.frequency_hz + self.modulation).clamp(20., 20000.) * (i as f32),
             // );
-            i += harmonic_index_increment;
+            i += self.harmonic_index_increment;
             number_of_harmonics += 1.;
         }
         self.number_of_harmonics = number_of_harmonics;
         output
-    }
-
-    fn square_wave(&mut self) -> f32 {
-        self.generative_waveform(2, 1.0)
-    }
-
-    fn saw_wave(&mut self) -> f32 {
-        self.generative_waveform(1, 1.0)
-    }
-
-    fn triangle_wave(&mut self) -> f32 {
-        self.generative_waveform(2, 2.0)
-    }
-
-    pub fn tick(&mut self) -> f32 {
-        match self.waveform {
-            Waveform::Sine => self.sine_wave(),
-            Waveform::Square => self.square_wave(),
-            Waveform::Saw => self.saw_wave(),
-            Waveform::Triangle => self.triangle_wave(),
-        }
     }
 
     pub fn modulate(&mut self, modulation: f32) {

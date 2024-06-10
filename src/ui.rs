@@ -92,7 +92,7 @@ pub fn ui(parameters: Arc<Mutex<HashMap<String, Parameter>>>, receive_event: Rec
             local_parameters.push(parameter.clone());
         }
         let terminal_size = crossterm::terminal::size().unwrap_or(default);
-        let mut bottom = top_selection_index + terminal_size.1 as i32 - 2;
+        let bottom = top_selection_index + terminal_size.1 as i32 - 2;
         
         if (selected - 3) < top_selection_index && top_selection_index > 0 {top_selection_index -= 1}
         if (selected + 3) > bottom && (bottom < local_parameters.len() as i32){top_selection_index+=1}

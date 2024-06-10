@@ -5,6 +5,7 @@ use crate::buffer::DelayLine;
 use crate::envelope::Envelope;
 use crate::filter::FilterType;
 use crate::oscillator::Waveform;
+use crate::outils;
 use crate::parameters;
 use crate::parameters::get_parameters;
 use crate::Biquad;
@@ -12,7 +13,6 @@ use crate::Chorus;
 use crate::HarmonicOscillator;
 use crate::Lfo;
 use crate::RingBuffer;
-use crate::outils;
 use crate::TextCharacteristic;
 
 pub struct Synth {
@@ -118,7 +118,7 @@ impl Synth {
         self.filter
             .modulate(self.buffer.read_sample() * self.osc_to_filter_amp);
         self.oscillator.modulate(self.lfo.tick() * self.lfo_to_osc);
-        let mut sample = self.oscillator.tick();
+        let mut sample = self.oscillator.process();
         //vca
         let envelope = self.envelope.process();
         sample *= envelope;
@@ -126,10 +126,13 @@ impl Synth {
         self.buffer.write_sample(sample);
         sample = self.filter.process(sample);
         sample = self.chorus.process(sample);
-        sample = outils::equal_power_crossfade(sample, self.delay.process(sample), self.parameters["dly-wet"].get_raw_value());
+        sample = outils::equal_power_crossfade(
+            sample,
+            self.delay.process(sample),
+            self.parameters["dly-wet"].get_raw_value(),
+        );
         sample *= self.parameters["volume"].get_raw_value();
         return sample;
-
     }
 
     // pub fn set_parameters(&mut self, parameters: Parameters) {
@@ -150,12 +153,14 @@ impl Synth {
     pub fn set_parameters(&mut self) {
         self.filter
             .set_frequency(self.parameters["fil-freq"].get_raw_value());
-        self.oscillator.set_parameters(
-            self.parameters["osc-tune"].get_raw_value(),
-            Waveform::Sine,
-            self.parameters["lfo-freq"].get_raw_value(),
-            self.parameters["lfo-period"].get_raw_value(),
-        );
+
+        //oscillator
+        self.oscillator.lfo_frequency = self.parameters["lfo-freq"].get_raw_value();
+        self.oscillator.tune = self.parameters["osc-tune"].get_raw_value();
+        self.oscillator.number_of_periods = self.parameters["lfo-period"].get_raw_value();
+        self.oscillator.harmonic_gain_exponent = self.parameters["osc-nbhrm"].get_raw_value();
+        self.oscillator.harmonic_index_increment = self.parameters["osc-hrmgn"].get_raw_value();
+
         self.buffer.set_delay_time(self.routing_delay_time);
         self.chorus.set_parameters(0.5, 0.1);
         self.lfo.set_freq_and_shape(
@@ -166,7 +171,7 @@ impl Synth {
             .set_attack(self.parameters["env-atk"].get_raw_value());
         self.envelope
             .set_release(self.parameters["env-dcy"].get_raw_value());
-
+        //delay (dry/wet implemented in process)
         self.delay
             .set_time(self.parameters["dly-time"].get_raw_value());
         self.delay
