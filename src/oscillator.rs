@@ -19,7 +19,7 @@ impl Lfo {
     pub fn build_lfo(frequence: f32, sample_rate: f32) -> Self {
         Lfo {
             frequence,
-            waveform: Waveform::Saw,
+            waveform: Waveform::Triangle,
             phasor: 0.,
             sample_rate,
         }
@@ -77,13 +77,13 @@ impl Lfo {
             Waveform::Saw => self.saw(),
             Waveform::Triangle => self.triangle(),
             // _ => 0.,
-        }
+            }
     }
-}
-
+    }
+    
+#[derive(Clone, Copy)]
 pub struct HarmonicOscillator {
     //Parameter
-    pub tune: f32,
     pub frequency_hz: f32,
     pub lfo_frequency: f32,
     pub number_of_periods: f32,
@@ -105,7 +105,6 @@ impl HarmonicOscillator {
             frequency_hz,
             lfo_frequency,
             number_of_periods: 1.,
-            tune: 0.,
             current_sample_index: 0.,
             lfo_current_sample_index: 0.,
             number_of_harmonics: 1.,
@@ -128,6 +127,10 @@ impl HarmonicOscillator {
     fn get_lfo_gain(&self, mut index: f32) -> f32 {
         index = index / self.number_of_harmonics;
         index = (self.lfo_current_sample_index + index) % (1. / self.number_of_periods);
+        // Get tri out of saw
+        index -= 0.5 ;
+        index = index.abs();
+        index *= 2.;
         index *= self.number_of_periods;
         index
     }
@@ -151,11 +154,12 @@ impl HarmonicOscillator {
         let mut output = 0.0;
         let mut i = 1.;
         let mut number_of_harmonics = 1.0;
-        while !self.is_multiple_of_freq_above_nyquist(i as f32) {
+        while !self.is_multiple_of_freq_above_nyquist(i as f32) || number_of_harmonics<20. {
             let gain = 1.0 / (i as f32).powf(self.harmonic_gain_exponent);
-            let lfo_gain = self.get_lfo_gain(number_of_harmonics);
+            let lfo_gain = 1.;
+            // self.get_lfo_gain(number_of_harmonics);
             let sine = self.calculate_sine_output_from_freq(
-                (self.frequency_hz + self.modulation).clamp(20., 20000.) * (i as f32),
+                (self.frequency_hz).clamp(20., 20000.) * (i as f32),
             );
             output += gain * lfo_gain * sine;
             // * self.get_lfo_gain(number_of_harmonics)
@@ -166,10 +170,12 @@ impl HarmonicOscillator {
             number_of_harmonics += 1.;
         }
         self.number_of_harmonics = number_of_harmonics;
+        //volume adjustement
+        output *= ((self.harmonic_gain_exponent-0.01)/3.0).powf(1.2) * 100.;
+        output /= 100.;
+        output *= (self.harmonic_index_increment/2.0).powf(1.0);
         output
     }
 
-    pub fn modulate(&mut self, modulation: f32) {
-        self.modulation = modulation;
-    }
+ 
 }

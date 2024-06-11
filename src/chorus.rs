@@ -7,7 +7,7 @@ pub struct Chorus {
 }
 
 impl Chorus {
-    pub fn default(sample_rate: f32) -> Self {
+    pub fn new(sample_rate: f32) -> Self {
         Chorus {
             lfo: Lfo::build_lfo(0.2, sample_rate),
             buffer: RingBuffer::new(sample_rate, 0.050),

@@ -2,24 +2,26 @@ use std::collections::HashMap;
 
 use crate::buffer;
 use crate::buffer::DelayLine;
+use crate::envelope;
 use crate::envelope::Envelope;
-use crate::filter::FilterType;
+use crate::midibuffer::PolyMidiBuffer;
 use crate::oscillator::Waveform;
 use crate::outils;
 use crate::parameters;
 use crate::parameters::get_parameters;
-use crate::Biquad;
 use crate::Chorus;
 use crate::HarmonicOscillator;
 use crate::Lfo;
 use crate::RingBuffer;
 use crate::TextCharacteristic;
 
+const NUMBER_OF_VOICES: usize = 4;
+const VOICE_ITERATOR: std::ops::Range<usize> = 0..NUMBER_OF_VOICES;
+
 pub struct Synth {
-    current_note: Option<u8>,
-    envelope: Envelope,
-    filter: Biquad,
-    oscillator: HarmonicOscillator,
+    envelopes: [Envelope; NUMBER_OF_VOICES],
+    oscillators: [HarmonicOscillator; NUMBER_OF_VOICES],
+    midibuffer: PolyMidiBuffer,
     lfo: Lfo,
     delay: DelayLine,
     chorus: Chorus,
@@ -27,54 +29,37 @@ pub struct Synth {
     pub parameters: HashMap<String, parameters::Parameter>,
     // parameters: Parameters,
     routing_delay_time: f32,
-    osc_to_filter_amp: f32,
-    lfo_to_osc: f32,
 }
 
 impl Synth {
     pub fn default(sample_rate: f32) -> Self {
         Synth {
-            current_note: None,
-            filter: Biquad::default(sample_rate, FilterType::LPF, 1000., 0.707),
-            envelope: Envelope::new(sample_rate as i32),
+            envelopes: [Envelope::new(sample_rate as i32); NUMBER_OF_VOICES],
             lfo: Lfo::build_lfo(0.2, sample_rate),
-            oscillator: HarmonicOscillator::new(sample_rate, 500., 0.2),
+            oscillators: [HarmonicOscillator::new(sample_rate, 500., 0.2); NUMBER_OF_VOICES],
+            midibuffer: PolyMidiBuffer::new(NUMBER_OF_VOICES),
             buffer: RingBuffer::new(sample_rate, 0.05),
-            chorus: Chorus::default(sample_rate),
+            chorus: Chorus::new(sample_rate),
             routing_delay_time: 0.5,
-            osc_to_filter_amp: 0.1,
-            lfo_to_osc: 0.1,
             parameters: get_parameters(),
             delay: DelayLine::new(sample_rate, buffer::MAXIMUM_DELAY_TIME),
             // parameters: Parameters {},
         }
     }
     pub fn set_note(&mut self, midi_note: u8, note_on: bool) {
-        match self.current_note {
-            //if not playing, start a new note
-            None => {
-                if note_on {
-                    self.current_note = Some(midi_note);
-                    self.envelope.note_statut(true);
-                };
-            }
-            // if playing, end the note if is the correct noteOff, or change to a new one it is a noteOn
-            Some(current_note) => match note_on {
-                false => {
-                    if midi_note == current_note {
-                        self.current_note = None;
-                        self.envelope.note_statut(false);
-                    }
-                }
-                true => {
-                    if midi_note != current_note {
-                        self.current_note = Some(midi_note);
-                    }
-                }
-            },
+        if note_on {
+            self.midibuffer.add_note(midi_note);
+        } else {
+            self.midibuffer.remove_note(midi_note);
         }
-        if self.current_note != None {
-            self.oscillator.set_note(self.current_note.clone().unwrap())
+
+        for i in VOICE_ITERATOR {
+            match self.midibuffer.notes.get(i) {
+                None => {self.envelopes[i].note_off()},
+                Some(midi_note) => { self.envelopes[i].note_on();
+                    self.oscillators[i].set_note(*midi_note)            
+                }
+            }
         }
     }
 
@@ -115,17 +100,16 @@ impl Synth {
 
     pub fn process(&mut self) -> f32 {
         self.set_parameters();
-        self.filter
-            .modulate(self.buffer.read_sample() * self.osc_to_filter_amp);
-        self.oscillator.modulate(self.lfo.tick() * self.lfo_to_osc);
-        let mut sample = self.oscillator.process();
+        let mut sample: f32 = 0.;
+        for i in VOICE_ITERATOR {
+            match self.envelopes[i].status{
+                envelope::Segment::Off => {}
+                _ => {sample += self.oscillators[i].process() * self.envelopes[i].process()}
+            }
+        }
+        sample /= 4.;
         //vca
-        let envelope = self.envelope.process();
-        sample *= envelope;
         // EFFECTS
-        self.buffer.write_sample(sample);
-        sample = self.filter.process(sample);
-        sample = self.chorus.process(sample);
         sample = outils::equal_power_crossfade(
             sample,
             self.delay.process(sample),
@@ -151,26 +135,18 @@ impl Synth {
     // }
 
     pub fn set_parameters(&mut self) {
-        self.filter
-            .set_frequency(self.parameters["fil-freq"].get_raw_value());
-
         //oscillator
-        self.oscillator.lfo_frequency = self.parameters["lfo-freq"].get_raw_value();
-        self.oscillator.tune = self.parameters["osc-tune"].get_raw_value();
-        self.oscillator.number_of_periods = self.parameters["lfo-period"].get_raw_value();
-        self.oscillator.harmonic_gain_exponent = self.parameters["osc-nbhrm"].get_raw_value();
-        self.oscillator.harmonic_index_increment = self.parameters["osc-hrmgn"].get_raw_value();
+        for i in VOICE_ITERATOR {
+            self.oscillators[i].lfo_frequency = self.parameters["lfo-freq"].get_raw_value();
+            self.oscillators[i].number_of_periods = self.parameters["lfo-period"].get_raw_value();
+            self.oscillators[i].harmonic_gain_exponent =
+                self.parameters["osc-hrmgn"].get_raw_value();
+            self.oscillators[i].harmonic_index_increment =
+                self.parameters["osc-hrmrat"].get_raw_value();
+            self.envelopes[i].set_attack(self.parameters["env-atk"].get_raw_value());
+            self.envelopes[i].set_release(self.parameters["env-dcy"].get_raw_value());
+        }
 
-        self.buffer.set_delay_time(self.routing_delay_time);
-        self.chorus.set_parameters(0.5, 0.1);
-        self.lfo.set_freq_and_shape(
-            self.parameters["lfo-freq"].get_raw_value(),
-            Waveform::Square,
-        );
-        self.envelope
-            .set_attack(self.parameters["env-atk"].get_raw_value());
-        self.envelope
-            .set_release(self.parameters["env-dcy"].get_raw_value());
         //delay (dry/wet implemented in process)
         self.delay
             .set_time(self.parameters["dly-time"].get_raw_value());

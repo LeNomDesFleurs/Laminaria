@@ -112,19 +112,17 @@ where
     Ok(stream)
 }
 
+
 fn process_frame<SampleType>(output: &mut [SampleType], synth: &mut Synth, num_channels: usize)
 where
     SampleType: Sample + FromSample<f32>,
 {
     for frame in output.chunks_mut(num_channels) {
-        // let value: SampleType = SampleType::from_sample(oscillator.tick());
         let value: SampleType = SampleType::from_sample(synth.process());
-        // let value: SampleType = SampleType::from_sample(lfo.tick());
+
         // copy the same value to all channels
         for sample in frame.iter_mut() {
-            // oscillator.
             *sample = value;
         }
-        // println!("{}", iterator)
     }
 }

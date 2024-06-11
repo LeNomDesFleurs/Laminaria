@@ -4,22 +4,23 @@ use crate::outils::convert_ms_to_sample;
 pub static MAXIMUM_ENVELOPE_TIME: f32 = 10000.;
 pub static MINIMUM_ENVELOPE_TIME: f32 = 10.;
 
+#[derive(PartialEq, Copy, Clone)]
+pub enum Segment {
+    Attack,
+    Sustain,
+    Release,
+    Off,
+}
+#[derive(Clone, Copy)]
 pub struct Envelope {
     value: f32,
-    status: Segment,
+    pub status: Segment,
     //in sample
     sample_rate: i32,
     increment: f32,
     decrement: f32,
 }
 
-#[derive(PartialEq)]
-enum Segment {
-    Attack,
-    Sustain,
-    Release,
-    Off,
-}
 
 impl Envelope {
     pub fn new(sample_rate: i32) -> Self {
@@ -31,9 +32,11 @@ impl Envelope {
             sample_rate: sample_rate,
         }
     }
+    ///time in ms
     pub fn set_attack(&mut self, time: f32) {
         self.set_segment_length(time, Attack)
     }
+    ///time in ms
     pub fn set_release(&mut self, time: f32) {
         self.set_segment_length(time, Release)
     }
@@ -46,27 +49,23 @@ impl Envelope {
         let clamped_time = time.clamp(MINIMUM_ENVELOPE_TIME, MAXIMUM_ENVELOPE_TIME);
         let samples = convert_ms_to_sample(clamped_time, self.sample_rate as f32);
         let step = 1. / samples;
-        match segment{
-            Segment::Attack => {self.increment = step}
-            Segment::Release => {self.decrement = step}
+        match segment {
+            Segment::Attack => self.increment = step,
+            Segment::Release => self.decrement = step,
             _ => {}
         }
     }
+    pub fn note_on(&mut self){
+        self.status = Attack
+    }
 
-    pub fn note_statut(&mut self, note_on: bool) {
-        //if note is on and envelope is off, launch envelope
-        if note_on && (self.status == Off || self.status == Attack) {
-            self.status = Attack
-        }
-        //if note is off and envelope is on, jump to release
-        if !note_on && !(self.status == Off) {
-            self.status = Release
-        }
+    pub fn note_off(&mut self){
+        self.status = Release
     }
 
     pub fn process(&mut self) -> f32 {
         match self.status {
-            Off => {},
+            Off => {}
             Attack => {
                 self.value += self.increment;
                 if self.value >= 1. {

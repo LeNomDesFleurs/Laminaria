@@ -88,12 +88,10 @@ pub fn get_parameters()->HashMap<String, Parameter>{
     return HashMap::from([
         //filter
     // make_param!("fil_freq", 32, 'f', 20., 20000., 0.5),
-    ("fil-freq".to_string(), Parameter{name: "fil-freq".to_string(),value:32, midicc:'f', min: 20., max: 20000.,skew:0.5}),
         //osc
-    ("osc-tune".to_string(), Parameter{name: "osc-tune".to_string(),value:32, midicc:'0', min: -100., max: 100.,skew:0.5}),
-    ("osc-nbhrm".to_string(), Parameter{name: "osc-nbhrm".to_string(), value: 32, midicc:'h', min:0., max:2., skew:1.}),
+    ("osc-hrmrat".to_string(), Parameter{name: "osc-hrmrat".to_string(), value: 32, midicc:'h', min:0.2, max:2., skew:1.4}),
     ("osc-hrmgn".to_string(), Parameter{name: "osc-hrmgn".to_string(), value: 32, midicc:'g', min:0.01, max:3., skew:1.}),
-    ("lfo-freq".to_string(), Parameter{name: "lfo-freq".to_string(), value:32, midicc:'l', min:0., max:5., skew: 0.5}),
+    ("lfo-freq".to_string(), Parameter{name: "lfo-freq".to_string(), value:8, midicc:'l', min:0., max:5., skew: 2.}),
     ("lfo-period".to_string(), Parameter{name: "lfo-period".to_string(), value:32, midicc:'p', min:0., max:5., skew: 0.5}),
     //envelop
     ("env-atk".to_string(), Parameter{name: "env-atk".to_string(), value: 3, midicc:'a', min: envelope::MINIMUM_ENVELOPE_TIME,  max: envelope::MAXIMUM_ENVELOPE_TIME, skew: 2.}), 
@@ -101,7 +99,7 @@ pub fn get_parameters()->HashMap<String, Parameter>{
     //Delay
     ("dly-time".to_string(), Parameter{name: "dly-time".to_string(), value:4, midicc:'t', min: buffer::MINIMUM_DELAY_TIME, max: buffer::MAXIMUM_DELAY_TIME, skew: 2. }),
     ("dly-feed".to_string(), Parameter{name: "dly-feed".to_string(), value:4, midicc:'f', min: 0., max: 0.99, skew: 1. }),
-    ("dly-wet".to_string(), Parameter{name: "dly-wet".to_string(), value:15, midicc:'w', min: 0., max:1., skew:1.}),
+    ("dly-wet".to_string(), Parameter{name: "dly-wet".to_string(), value:0, midicc:'w', min: 0., max:1., skew:1.}),
     //global
     ("volume".to_string(), Parameter{name: "volume".to_string(), value:32, midicc:'v', min:0., max:1., skew: 2.}),
     ])
