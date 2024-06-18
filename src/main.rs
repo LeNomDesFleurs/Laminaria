@@ -21,6 +21,7 @@ mod textparsing;
 pub use textparsing::TextCharacteristic;
 mod envelope;
 mod midibuffer;
+mod reverb;
 /* This example expose parameter to pass generator of sample.
 Good starting point for integration of cpal into your application.
 */

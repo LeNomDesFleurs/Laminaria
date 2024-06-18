@@ -118,7 +118,7 @@ impl ParameterCapsule {
 }
 
 //replace with variant_count if it someday hit stable release
-pub const NUMBER_OF_PARAMETERS: usize = 9;
+pub const NUMBER_OF_PARAMETERS: usize = 11;
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum ParameterID {
@@ -130,6 +130,8 @@ pub enum ParameterID {
     DelayTime,
     DelayFeedback,
     DelayDryWet,
+    ReverbTime,
+    ReverbDryWet,
     Volume,
 }
 pub struct Parameters {
@@ -175,8 +177,10 @@ impl Parameters {
                     buffer::MAXIMUM_DELAY_TIME,
                     2.,
                 ),
-                P::new(ID::DelayFeedback, "dly-feed", 4, 'f', 0., 0.99, 1.),
+                P::new(ID::DelayFeedback, "dly-feed", 4, 'f', 0., 1.0, 1.),
                 P::new(ID::DelayDryWet, "dly-wet", 0, 'w', 0., 1., 1.),
+                P::new(ID::ReverbDryWet, "rvb-wet", 0, 'r', 0., 1., 1.),
+                P::new(ID::ReverbTime, "rvb-time", 0, '9', 0., 0.99, 1.),
                 //global
                 P::new(ID::Volume, "volume", 32, 'v', 0., 1., 2.),
             ],

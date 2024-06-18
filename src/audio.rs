@@ -1,7 +1,6 @@
-use crate::parameters::{Parameter, ParameterCapsule, ParameterID};
 use crate::{MidiEvent, ParameterUpdate, Synth};
 use cpal::{
-    traits::{DeviceTrait, HostTrait, StreamTrait},
+    traits::{DeviceTrait, HostTrait},
     SizedSample,
 };
 use cpal::{FromSample, Sample};

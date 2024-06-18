@@ -1,10 +1,12 @@
-use crate::outils;
+use crate::outils::{self, rt60_to_gain};
+#[derive(Clone, Copy)]
 enum InterpolationMode {
     None,
     Linear,
     Allpass,
 }
 
+// #[derive(Copy, Clone)]
 pub struct RingBuffer {
     interpolation_mode: InterpolationMode,
     pub freezed: bool,
@@ -227,112 +229,97 @@ impl RingBuffer {
 
 pub static MAXIMUM_DELAY_TIME: f32 = 10.;
 pub static MINIMUM_DELAY_TIME: f32 = 0.01;
+
+enum DelayMode {
+    //delay line => dry wet
+    DelayLine,
+    //flat frequency feedback
+    Allpass,
+    //basic feedback
+    Comb,
+}
+// #[derive(Clone, Copy)]
 pub struct DelayLine {
     buffer: RingBuffer,
     feedback: f32,
     dry_wet: f32,
+    delay_time: f32,
+    delay_mode: DelayMode,
 }
 
 impl DelayLine {
+    pub fn set_rt60(&mut self, rt60: f32) {
+        self.feedback = rt60_to_gain(rt60, self.delay_time)
+    }
     //max_time in seconds
-    pub fn new(sample_rate: f32, max_time: f32)->Self{
-        DelayLine{
+    pub fn new(sample_rate: f32, max_time: f32) -> Self {
+        DelayLine {
             buffer: RingBuffer::new(sample_rate, max_time),
             feedback: 0.5,
             dry_wet: 0.5,
+            delay_mode: DelayMode::DelayLine,
+            delay_time: max_time,
         }
     }
+    //max_time in seconds
+    pub fn new_comb(sample_rate: f32, max_time: f32)->Self{
+        let mut delay = DelayLine::new(sample_rate, max_time);
+        delay.delay_mode=DelayMode::Comb;
+        delay
+    }
 
-    pub fn process(&mut self, input_sample: f32)->f32{
-        let mut output_sample = self.buffer.read_sample();
+    //max_time in seconds
+    pub fn new_allpass(sample_rate: f32, max_time: f32)->Self{
+        let mut delay = DelayLine::new(sample_rate, max_time);
+        delay.delay_mode=DelayMode::Allpass;
+        delay
+    }
 
-        self.buffer.write_sample(input_sample + (output_sample * self.feedback));
-
-        output_sample = outils::equal_power_crossfade(
-            input_sample,
-            output_sample,
-            self.dry_wet,
-        );
-
-        output_sample
+    pub fn process(&mut self, input_sample: f32) -> f32 {
+        let mut delay = self.buffer.read_sample();
+        delay = delay.clamp(-1.0, 1.0);
+        let mut buf_in = 0.0;
+        let mut buf_out = 0.0;
+        // buffer.writeSample(buf_in);
+        // return buf_out;
+        match self.delay_mode{
+            DelayMode::DelayLine=>{
+                //buf_in = input_sample + delay * feedback
+                //buf_out = drywet(input_sample, delay)
+                buf_in = input_sample + delay * self.feedback;
+                buf_out = outils::equal_power_crossfade(input_sample, delay, self.dry_wet);
+            }
+            DelayMode::Allpass=>{
+                // float buf_in = (delay * m_gain) + input;
+                // float buf_out = delay + (input * -m_gain);
+                buf_in = input_sample + delay * self.feedback;
+                buf_out = delay + (input_sample * -self.feedback);
+            }
+            DelayMode::Comb=>{
+                //buf_in = input_sample + delay * feedback
+                //buf_out = delay
+                buf_in = input_sample + (delay * self.feedback);
+            }
+        }
+        self.buffer.write_sample(buf_in);
+        buf_out
     }
     ///time in seconds
-    pub fn set_time(&mut self, delay_time: f32){
-        self.buffer.set_delay_time(delay_time*1000.);
+    pub fn set_delay_time(&mut self, delay_time: f32) {
+        self.delay_time = delay_time;
+        self.buffer.set_delay_time(delay_time * 1000.);
     }
 
     ///O = dry, 1 = wet
-    pub fn set_dry_wet(&mut self, dry_wet: f32){
+    pub fn set_dry_wet(&mut self, dry_wet: f32) {
         self.dry_wet = dry_wet;
     }
 
-    pub fn set_feedback(&mut self, feedback: f32){
+    pub fn set_feedback(&mut self, feedback: f32) {
         self.feedback = feedback;
     }
 
-    pub fn set_freeze(&mut self, freeze: bool){
+    pub fn set_freeze(&mut self, freeze: bool) {
         self.buffer.set_freezed(freeze)
-    }
-}
-
-
-
-struct AllpassFilter{
-    buffer: RingBuffer,
-    gain: f32,
-    loop_time:f32,
-}
-
-impl AllpassFilter{
-
-    pub fn set_gain(&mut self, rt60: f32) {
-        self.gain = -60. * self.loop_time / rt60;
-        self.gain = 10.0_f32.powf(self.gain / 20.0);
-      }
-    ///delay in seconds
-    pub fn set_delay_time(&mut self, time:f32){
-        self.loop_time = time;
-        self.buffer.set_delay_time(self.loop_time*1000.);
-    }
-
-    pub fn process(&mut self, input_sample:f32)->f32{
-        let mut delay = self.buffer.read_sample();
-        delay = delay.clamp(-1.0, 1.0);
-
-  // float buf_in = (delay * m_gain) + input;
-  // float buf_out = delay + (input * -m_gain);
-  // m_buffer.writeSample(buf_in);
-  // return buf_out;
-        let output = ((input_sample + delay * self.gain) * (-self.gain)) + delay;
-        self.buffer.write_sample(output);
-        output
-    }
-
-}
-
-struct CombFilter{
-    buffer: RingBuffer,
-    gain: f32,
-    loop_time:f32,
-}
-
-impl CombFilter{
-
-    pub fn set_gain(&mut self, rt60: f32) {
-        self.gain = -60. * self.loop_time / rt60;
-        self.gain = 10.0_f32.powf(self.gain / 20.0);
-      }
-    ///delay in seconds
-    pub fn set_delay_time(&mut self, time:f32){
-        self.loop_time = time;
-        self.buffer.set_delay_time(self.loop_time*1000.);
-    }
-
-    pub fn process(&mut self, input_sample:f32)->f32{
-        let mut delay = self.buffer.read_sample();
-        delay = delay.clamp(-1.0, 1.0);
-        let output = input + (delay * self.gain);
-        self.buffer.write_sample(output);
-        output
     }
 }

@@ -5,20 +5,10 @@ use crate::buffer::DelayLine;
 use crate::envelope;
 use crate::envelope::Envelope;
 use crate::midibuffer::PolyMidiBuffer;
-use crate::oscillator::Oscillator;
-use crate::oscillator::Waveform;
-use crate::outils;
-use crate::parameters;
-use crate::parameters::Parameter;
-use crate::parameters::ParameterCapsule;
 use crate::parameters::ParameterID;
-use crate::parameters::Parameters;
 use crate::Biquad;
-use crate::Chorus;
 use crate::HarmonicOscillator;
-use crate::Lfo;
-use crate::RingBuffer;
-use crate::TextCharacteristic;
+use crate::reverb::Reverb;
 type ID = ParameterID;
 use crate::ParameterUpdate;
 
@@ -29,9 +19,7 @@ pub struct Synth {
     envelopes: [Envelope; NUMBER_OF_VOICES],
     oscillators: [HarmonicOscillator; NUMBER_OF_VOICES],
     midibuffer: PolyMidiBuffer,
-
-    oscillator: Oscillator,
-    oscillator2: HarmonicOscillator,
+    reverb: Reverb,
     delay: DelayLine,
     low_pass: Biquad,
     //parameters
@@ -41,8 +29,7 @@ pub struct Synth {
 impl Synth {
     pub fn default(sample_rate: f32) -> Self {
         Synth {
-            oscillator: Oscillator::new(sample_rate),
-            oscillator2: HarmonicOscillator::new(sample_rate, 500. ),
+            reverb: Reverb::new(sample_rate),
             envelopes: [Envelope::new(sample_rate as i32); NUMBER_OF_VOICES],
             oscillators: [HarmonicOscillator::new(sample_rate, 500.); NUMBER_OF_VOICES],
             midibuffer: PolyMidiBuffer::new(NUMBER_OF_VOICES),
@@ -113,14 +100,12 @@ impl Synth {
                 _ => sample += self.oscillators[i].process() * self.envelopes[i].process(),
             }
         }
-        // sample = self.oscillators[1].process();
-        // sample = self.oscillator2.process();
-        // sample = self.oscillator.process();
         sample /= 4.;
         sample = self.low_pass.process(sample);
         // EFFECTS
         sample = self.delay.process(sample);
-        
+        sample = self.reverb.process(sample);
+
         //vca
         sample *= self.volume;
 
@@ -142,25 +127,27 @@ impl Synth {
     //         .set_freq_and_shape(parameters.lfo_freq, parameters.lfo_shape);
     // }
 
-    
     pub fn set_parameter(&mut self, (id, new_value): ParameterUpdate) {
-
         //need to find the parameter description to know the min max
 
         type ID = ParameterID;
         match id {
             ID::Volume => self.volume = new_value,
+            ID::ReverbDryWet => self.reverb.set_reverb_time(new_value),
+            ID::ReverbTime => self.reverb.dry_wet = new_value,
             //oscillator
-            ID::OscHarmonicGain => //self.oscillator.gain_exponent=new_value, 
-            self
-                .oscillators
-                .iter_mut()
-                .for_each(|osc| osc.harmonic_gain_exponent=new_value),
-            ID::OscHarmonicRatio => //self.oscillator.harmonic_index_increment=new_value, 
-            self
-                .oscillators
-                .iter_mut()
-                .for_each(|osc| osc.harmonic_index_increment=new_value),
+            ID::OscHarmonicGain =>
+            {
+                self.oscillators
+                    .iter_mut()
+                    .for_each(|osc| osc.harmonic_gain_exponent = new_value)
+            }
+            ID::OscHarmonicRatio =>
+            {
+                self.oscillators
+                    .iter_mut()
+                    .for_each(|osc| osc.harmonic_index_increment = new_value)
+            }
             // envelope
             ID::EnvelopeAttack => self
                 .envelopes
@@ -172,13 +159,12 @@ impl Synth {
                 .for_each(|env| env.set_release(new_value)),
             ID::FilterCutoff => self.low_pass.set_frequency(new_value),
             //delay
-            ID::DelayDryWet=>self.delay.set_dry_wet(new_value),
-            ID::DelayTime=>self.delay.set_time(new_value),
-            ID::DelayFeedback=>{
-                self.delay.set_freeze(new_value > 0.95);
+            ID::DelayDryWet => self.delay.set_dry_wet(new_value),
+            ID::DelayTime => self.delay.set_delay_time(new_value),
+            ID::DelayFeedback => {
+                self.delay.set_freeze(new_value > 0.99);
                 self.delay.set_feedback(new_value)
             }
-
         }
     }
 }
