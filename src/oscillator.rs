@@ -81,36 +81,108 @@ impl Lfo {
     }
     }
     
+
+#[derive(Clone, Copy)]
+struct SineWave{
+    pub frequency_hz: f32,
+    pub sample_rate: f32,
+    pub phasor:f32,
+}
+
+impl SineWave{
+    pub fn new(sample_rate: f32)->Self{
+        Self{
+            frequency_hz: 440.0,
+            sample_rate,
+            phasor: 0.0,
+        }
+    }
+
+    fn increment_phasor(&mut self) {
+        self.phasor = (self.phasor + (self.frequency_hz / self.sample_rate)) % 1.;
+    }
+
+    fn sine(&self) -> f32 {
+        let two_pi = 2.0 * std::f32::consts::PI;
+        (self.phasor * two_pi).sin()
+    }
+
+    fn process(&mut self)->f32{
+        self.increment_phasor();
+        self.sine()
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct HarmonicOscillator {
     //Parameter
     pub frequency_hz: f32,
-    pub lfo_frequency: f32,
-    pub number_of_periods: f32,
     //computation variable
     sample_rate: f32,
+    sine_bank: [SineWave; 5],
     pub current_sample_index: f32,
-    lfo_current_sample_index: f32,
-    number_of_harmonics: f32,
-    modulation: f32,
     //waveform description, sqr is 2 / 1, tri is 2 / 2
     pub harmonic_index_increment: f32,
     pub harmonic_gain_exponent: f32,
 }
 
 impl HarmonicOscillator {
-    pub fn new(sample_rate: f32, frequency_hz: f32, lfo_frequency: f32) -> Self {
+    pub fn new(sample_rate: f32, frequency_hz: f32) -> Self {
         HarmonicOscillator {
             sample_rate,
             frequency_hz,
-            lfo_frequency,
-            number_of_periods: 1.,
-            current_sample_index: 0.,
-            lfo_current_sample_index: 0.,
-            number_of_harmonics: 1.,
-            modulation: 0.,
-            harmonic_gain_exponent: 1.,
-            harmonic_index_increment: 1.,
+            sine_bank: [SineWave::new(sample_rate); 5],
+            current_sample_index: 0.0,
+            harmonic_gain_exponent: 1.0,
+            harmonic_index_increment: 1.0,
+        }
+    }
+
+    pub fn set_note(&mut self, midi_note: u8) {
+        self.frequency_hz = midi_to_frequence(midi_note);
+    }
+
+    pub fn process(&mut self) -> f32 {
+        let mut output = 0.0;
+        let mut i = 1.;
+
+        for sine in self.sine_bank.iter_mut(){
+            let gain = 1.0 / (i as f32).powf(self.harmonic_gain_exponent);
+            sine.frequency_hz = self.frequency_hz * i;
+            output += sine.process()*gain;
+            i+=self.harmonic_index_increment;
+        }
+        output /= 5.0;
+
+        //volume adjustement
+        // output *= ((self.harmonic_gain_exponent-0.01)/3.0).powf(1.2) * 100.;
+        // output /= 100.;
+        output *= (self.harmonic_index_increment/2.0).powf(1.0);
+        output
+    }
+
+ 
+}
+
+
+pub struct Oscillator {
+    pub sample_rate: f32,
+    // pub waveform: Waveform,
+    pub current_sample_index: f32,
+    pub frequency_hz: f32,
+    pub harmonic_index_increment: f32,
+    pub gain_exponent: f32,
+}
+
+impl Oscillator {
+
+    pub fn new(sample_rate: f32)->Self{
+        Oscillator{
+            sample_rate,
+            current_sample_index: 0.0,
+            harmonic_index_increment: 1.0,
+            gain_exponent: 1.0,
+            frequency_hz: 500.0,
         }
     }
 
@@ -120,20 +192,11 @@ impl HarmonicOscillator {
 
     fn advance_sample(&mut self) {
         self.current_sample_index = (self.current_sample_index + 1.0) % self.sample_rate;
-        self.lfo_current_sample_index =
-            (self.lfo_current_sample_index + (self.lfo_frequency / self.sample_rate)) % 1.0;
     }
 
-    fn get_lfo_gain(&self, mut index: f32) -> f32 {
-        index = index / self.number_of_harmonics;
-        index = (self.lfo_current_sample_index + index) % (1. / self.number_of_periods);
-        // Get tri out of saw
-        index -= 0.5 ;
-        index = index.abs();
-        index *= 2.;
-        index *= self.number_of_periods;
-        index
-    }
+    // fn set_waveform(&mut self, waveform: Waveform) {
+    //     self.waveform = waveform;
+    // }
 
     fn calculate_sine_output_from_freq(&self, freq: f32) -> f32 {
         let two_pi = 2.0 * std::f32::consts::PI;
@@ -141,7 +204,7 @@ impl HarmonicOscillator {
     }
 
     fn is_multiple_of_freq_above_nyquist(&self, multiple: f32) -> bool {
-        self.frequency_hz * multiple > self.sample_rate / 2.0
+        false
     }
 
     fn sine_wave(&mut self) -> f32 {
@@ -149,33 +212,19 @@ impl HarmonicOscillator {
         self.calculate_sine_output_from_freq(self.frequency_hz)
     }
 
-    pub fn process(&mut self) -> f32 {
+    fn process2(&mut self, harmonic_index_increment: f32, gain_exponent: f32) -> f32 {
         self.advance_sample();
         let mut output = 0.0;
         let mut i = 1.;
-        let mut number_of_harmonics = 1.0;
-        while !self.is_multiple_of_freq_above_nyquist(i as f32) || number_of_harmonics<20. {
-            let gain = 1.0 / (i as f32).powf(self.harmonic_gain_exponent);
-            let lfo_gain = 1.;
-            // self.get_lfo_gain(number_of_harmonics);
-            let sine = self.calculate_sine_output_from_freq(
-                (self.frequency_hz).clamp(20., 20000.) * (i as f32),
-            );
-            output += gain * lfo_gain * sine;
-            // * self.get_lfo_gain(number_of_harmonics)
-            // * self.calculate_sine_output_from_freq(
-            //     (self.frequency_hz + self.modulation).clamp(20., 20000.) * (i as f32),
-            // );
+        while !self.is_multiple_of_freq_above_nyquist(i) {
+            let gain = 1.0 / (i as f32).powf(gain_exponent);
+            output += gain * self.calculate_sine_output_from_freq(self.frequency_hz * i);
             i += self.harmonic_index_increment;
-            number_of_harmonics += 1.;
         }
-        self.number_of_harmonics = number_of_harmonics;
-        //volume adjustement
-        output *= ((self.harmonic_gain_exponent-0.01)/3.0).powf(1.2) * 100.;
-        output /= 100.;
-        output *= (self.harmonic_index_increment/2.0).powf(1.0);
         output
     }
 
- 
+    pub fn process(&mut self) -> f32 {
+        self.process2(1.73, 2.67)
+    }
 }

@@ -7,15 +7,11 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'text'",
+            "name": "Debug executable 'Laminaria'",
             "cargo": {
-                "args": [
-                    "build",
-                    "--bin=text",
-                    "--package=text"
-                ],
+                "args": ["build", "--bin=Laminaria", "--package=Laminaria"],
                 "filter": {
-                    "name": "text",
+                    "name": "Laminaria",
                     "kind": "bin"
                 }
             },
@@ -25,16 +21,11 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'text'",
+            "name": "Debug unit tests in executable 'Laminaria'",
             "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--bin=text",
-                    "--package=text"
-                ],
+                "args": ["test", "--no-run", "--bin=Laminaria", "--package=Laminaria"],
                 "filter": {
-                    "name": "text",
+                    "name": "Laminaria",
                     "kind": "bin"
                 }
             },

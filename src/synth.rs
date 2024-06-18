@@ -5,15 +5,22 @@ use crate::buffer::DelayLine;
 use crate::envelope;
 use crate::envelope::Envelope;
 use crate::midibuffer::PolyMidiBuffer;
+use crate::oscillator::Oscillator;
 use crate::oscillator::Waveform;
 use crate::outils;
 use crate::parameters;
-use crate::parameters::get_parameters;
+use crate::parameters::Parameter;
+use crate::parameters::ParameterCapsule;
+use crate::parameters::ParameterID;
+use crate::parameters::Parameters;
+use crate::Biquad;
 use crate::Chorus;
 use crate::HarmonicOscillator;
 use crate::Lfo;
 use crate::RingBuffer;
 use crate::TextCharacteristic;
+type ID = ParameterID;
+use crate::ParameterUpdate;
 
 const NUMBER_OF_VOICES: usize = 4;
 const VOICE_ITERATOR: std::ops::Range<usize> = 0..NUMBER_OF_VOICES;
@@ -22,27 +29,26 @@ pub struct Synth {
     envelopes: [Envelope; NUMBER_OF_VOICES],
     oscillators: [HarmonicOscillator; NUMBER_OF_VOICES],
     midibuffer: PolyMidiBuffer,
-    lfo: Lfo,
+
+    oscillator: Oscillator,
+    oscillator2: HarmonicOscillator,
     delay: DelayLine,
-    chorus: Chorus,
-    buffer: RingBuffer,
-    pub parameters: HashMap<String, parameters::Parameter>,
-    // parameters: Parameters,
-    routing_delay_time: f32,
+    low_pass: Biquad,
+    //parameters
+    volume: f32,
 }
 
 impl Synth {
     pub fn default(sample_rate: f32) -> Self {
         Synth {
+            oscillator: Oscillator::new(sample_rate),
+            oscillator2: HarmonicOscillator::new(sample_rate, 500. ),
             envelopes: [Envelope::new(sample_rate as i32); NUMBER_OF_VOICES],
-            lfo: Lfo::build_lfo(0.2, sample_rate),
-            oscillators: [HarmonicOscillator::new(sample_rate, 500., 0.2); NUMBER_OF_VOICES],
+            oscillators: [HarmonicOscillator::new(sample_rate, 500.); NUMBER_OF_VOICES],
             midibuffer: PolyMidiBuffer::new(NUMBER_OF_VOICES),
-            buffer: RingBuffer::new(sample_rate, 0.05),
-            chorus: Chorus::new(sample_rate),
-            routing_delay_time: 0.5,
-            parameters: get_parameters(),
+            low_pass: Biquad::new(sample_rate, crate::filter::FilterType::LPF),
             delay: DelayLine::new(sample_rate, buffer::MAXIMUM_DELAY_TIME),
+            volume: 0.5,
             // parameters: Parameters {},
         }
     }
@@ -55,9 +61,10 @@ impl Synth {
 
         for i in VOICE_ITERATOR {
             match self.midibuffer.notes.get(i) {
-                None => {self.envelopes[i].note_off()},
-                Some(midi_note) => { self.envelopes[i].note_on();
-                    self.oscillators[i].set_note(*midi_note)            
+                None => self.envelopes[i].note_off(),
+                Some(midi_note) => {
+                    self.envelopes[i].note_on();
+                    self.oscillators[i].set_note(*midi_note)
                 }
             }
         }
@@ -99,23 +106,24 @@ impl Synth {
     // }
 
     pub fn process(&mut self) -> f32 {
-        self.set_parameters();
         let mut sample: f32 = 0.;
         for i in VOICE_ITERATOR {
-            match self.envelopes[i].status{
+            match self.envelopes[i].status {
                 envelope::Segment::Off => {}
-                _ => {sample += self.oscillators[i].process() * self.envelopes[i].process()}
+                _ => sample += self.oscillators[i].process() * self.envelopes[i].process(),
             }
         }
+        // sample = self.oscillators[1].process();
+        // sample = self.oscillator2.process();
+        // sample = self.oscillator.process();
         sample /= 4.;
-        //vca
+        sample = self.low_pass.process(sample);
         // EFFECTS
-        sample = outils::equal_power_crossfade(
-            sample,
-            self.delay.process(sample),
-            self.parameters["dly-wet"].get_raw_value(),
-        );
-        sample *= self.parameters["volume"].get_raw_value();
+        sample = self.delay.process(sample);
+        
+        //vca
+        sample *= self.volume;
+
         return sample;
     }
 
@@ -134,23 +142,43 @@ impl Synth {
     //         .set_freq_and_shape(parameters.lfo_freq, parameters.lfo_shape);
     // }
 
-    pub fn set_parameters(&mut self) {
-        //oscillator
-        for i in VOICE_ITERATOR {
-            self.oscillators[i].lfo_frequency = self.parameters["lfo-freq"].get_raw_value();
-            self.oscillators[i].number_of_periods = self.parameters["lfo-period"].get_raw_value();
-            self.oscillators[i].harmonic_gain_exponent =
-                self.parameters["osc-hrmgn"].get_raw_value();
-            self.oscillators[i].harmonic_index_increment =
-                self.parameters["osc-hrmrat"].get_raw_value();
-            self.envelopes[i].set_attack(self.parameters["env-atk"].get_raw_value());
-            self.envelopes[i].set_release(self.parameters["env-dcy"].get_raw_value());
-        }
+    
+    pub fn set_parameter(&mut self, (id, new_value): ParameterUpdate) {
 
-        //delay (dry/wet implemented in process)
-        self.delay
-            .set_time(self.parameters["dly-time"].get_raw_value());
-        self.delay
-            .set_feedback(self.parameters["dly-feed"].get_raw_value());
+        //need to find the parameter description to know the min max
+
+        type ID = ParameterID;
+        match id {
+            ID::Volume => self.volume = new_value,
+            //oscillator
+            ID::OscHarmonicGain => //self.oscillator.gain_exponent=new_value, 
+            self
+                .oscillators
+                .iter_mut()
+                .for_each(|osc| osc.harmonic_gain_exponent=new_value),
+            ID::OscHarmonicRatio => //self.oscillator.harmonic_index_increment=new_value, 
+            self
+                .oscillators
+                .iter_mut()
+                .for_each(|osc| osc.harmonic_index_increment=new_value),
+            // envelope
+            ID::EnvelopeAttack => self
+                .envelopes
+                .iter_mut()
+                .for_each(|env| env.set_attack(new_value)),
+            ID::EnvelopeRelease => self
+                .envelopes
+                .iter_mut()
+                .for_each(|env| env.set_release(new_value)),
+            ID::FilterCutoff => self.low_pass.set_frequency(new_value),
+            //delay
+            ID::DelayDryWet=>self.delay.set_dry_wet(new_value),
+            ID::DelayTime=>self.delay.set_time(new_value),
+            ID::DelayFeedback=>{
+                self.delay.set_freeze(new_value > 0.95);
+                self.delay.set_feedback(new_value)
+            }
+
+        }
     }
 }

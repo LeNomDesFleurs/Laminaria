@@ -1,34 +1,47 @@
-use std::collections::HashMap;
 use crate::buffer;
 use crate::envelope;
 use crate::outils;
-
+use std::ops::{Index, IndexMut};
 
 #[derive(Clone)]
-pub struct Parameter{
-        pub name: String,
-        pub value: i32,
-        pub midicc: char,
-        pub min: f32,
-        pub max: f32,
-        pub skew: f32,
+pub struct Parameter {
+    pub display_name: String,
+    pub value: i32,
+    pub midicc: char,
+    pub min: f32,
+    pub max: f32,
+    pub skew: f32,
 }
 
-impl Parameter{
-    pub fn build_string(&self)->String{
-        let mut string:String = Default::default();
+impl Parameter {
+    ///return a empty parameter for test purposes
+    pub fn new_dummy(name: &str) -> Self {
+        Parameter {
+            display_name: name.to_string(),
+            value: 0,
+            midicc: '0',
+            min: 0.,
+            max: 1.,
+            skew: 1.,
+        }
+    }
+
+    pub fn build_string(&self) -> String {
+        let mut string: String = Default::default();
         //CC
         string += &self.midicc.to_string();
         string += " - ";
         //NAME
-        string += &self.name;
+        string += &self.display_name;
         //MARGIN
-        for _i in 0..10-&self.name.len(){
-            string+=" ";
+        for _i in 0..10 - &self.display_name.len() {
+            string += " ";
         }
         string += " - ";
         //value in orca numbers
-        string += &outils::get_orca_character(self.value).unwrap_or('0').to_string();
+        string += &outils::get_orca_character(self.value)
+            .unwrap_or('0')
+            .to_string();
         string += " - ";
         //value vizualisation
         string += &self.display_value();
@@ -36,71 +49,220 @@ impl Parameter{
         string += " ";
         string += &format!("{:.2}", self.get_raw_value()).to_string();
         return string;
-    
-    //get lenght après le nom pour les valeur arrive au même endroit (voir mêem centrer le non des variables ?)
+
+        //get lenght après le nom pour les valeur arrive au même endroit (voir mêem centrer le non des variables ?)
     }
-    
-    pub fn get_raw_value(&self)->f32{
-        let mut value = self.value as f32/36.;
+
+    pub fn get_raw_value(&self) -> f32 {
+        let mut value = self.value as f32 / 35.;
         value = value.powf(self.skew);
         value *= self.max - self.min;
         value += self.min;
         return value;
     }
 
-    pub fn increment(&mut self){
+    pub fn increment(&mut self) {
         self.value += 1;
         self.value = self.value.clamp(0, 35);
     }
-    
-    pub fn decrement(&mut self){
+
+    pub fn decrement(&mut self) {
         self.value -= 1;
         self.value = self.value.clamp(0, 35);
     }
-    
-    fn display_value(&self)->String{
-        let mut string:String = Default::default();
-        for i in 0..35{
-            if i < self.value{
-                string+="|";
+
+    fn display_value(&self) -> String {
+        let mut string: String = Default::default();
+        for i in 0..35 {
+            if i < self.value {
+                string += "|";
             }
             if i >= self.value {
-                string+="-";
+                string += "-";
             }
         }
         return string;
     }
-    pub fn set_value(&mut self, character:char){
+    pub fn set_value(&mut self, character: char) {
         self.value = outils::get_orca_integer(character).unwrap_or(self.value as u8) as i32;
     }
 }
 
-// #[macro_export]
-// macro_rules! make_param {
-//     ( $name: literal, $value: literal, $midicc: literal, $min: literal, $max: literal, $skew: literal) => {
-//         {
-//     ($name.to_string(), Parameter{name: $name.to_string(), value:$value, midicc:$midicc, min: 20., max: 20000.,skew:0.5})
-//         }
-//     };
-// }
+pub struct ParameterCapsule {
+    pub id: ParameterID,
+    pub parameter: Parameter,
+}
 
-pub fn get_parameters()->HashMap<String, Parameter>{
-    return HashMap::from([
-        //filter
-    // make_param!("fil_freq", 32, 'f', 20., 20000., 0.5),
-        //osc
-    ("osc-hrmrat".to_string(), Parameter{name: "osc-hrmrat".to_string(), value: 32, midicc:'h', min:0.2, max:2., skew:1.4}),
-    ("osc-hrmgn".to_string(), Parameter{name: "osc-hrmgn".to_string(), value: 32, midicc:'g', min:0.01, max:3., skew:1.}),
-    ("lfo-freq".to_string(), Parameter{name: "lfo-freq".to_string(), value:8, midicc:'l', min:0., max:5., skew: 2.}),
-    ("lfo-period".to_string(), Parameter{name: "lfo-period".to_string(), value:32, midicc:'p', min:0., max:5., skew: 0.5}),
-    //envelop
-    ("env-atk".to_string(), Parameter{name: "env-atk".to_string(), value: 3, midicc:'a', min: envelope::MINIMUM_ENVELOPE_TIME,  max: envelope::MAXIMUM_ENVELOPE_TIME, skew: 2.}), 
-    ("env-dcy".to_string(), Parameter{name: "env-dcy".to_string(), value: 3, midicc:'d', min: envelope::MINIMUM_ENVELOPE_TIME,  max: envelope::MAXIMUM_ENVELOPE_TIME, skew: 2.}), 
-    //Delay
-    ("dly-time".to_string(), Parameter{name: "dly-time".to_string(), value:4, midicc:'t', min: buffer::MINIMUM_DELAY_TIME, max: buffer::MAXIMUM_DELAY_TIME, skew: 2. }),
-    ("dly-feed".to_string(), Parameter{name: "dly-feed".to_string(), value:4, midicc:'f', min: 0., max: 0.99, skew: 1. }),
-    ("dly-wet".to_string(), Parameter{name: "dly-wet".to_string(), value:0, midicc:'w', min: 0., max:1., skew:1.}),
-    //global
-    ("volume".to_string(), Parameter{name: "volume".to_string(), value:32, midicc:'v', min:0., max:1., skew: 2.}),
-    ])
+impl ParameterCapsule {
+    pub fn new(
+        id: ParameterID,
+        display_name: &str,
+        default_value: i32,
+        cc: char,
+        min: f32,
+        max: f32,
+        skew: f32,
+    ) -> Self {
+        Self {
+            id: id,
+            parameter: Parameter {
+                display_name: display_name.to_string(),
+                value: default_value,
+                midicc: cc,
+                min: min,
+                max: max,
+                skew: skew,
+            },
+        }
+    }
+}
+
+//replace with variant_count if it someday hit stable release
+pub const NUMBER_OF_PARAMETERS: usize = 9;
+
+#[derive(PartialEq, Debug, Copy, Clone)]
+pub enum ParameterID {
+    OscHarmonicRatio,
+    OscHarmonicGain,
+    EnvelopeAttack,
+    EnvelopeRelease,
+    FilterCutoff,
+    DelayTime,
+    DelayFeedback,
+    DelayDryWet,
+    Volume,
+}
+pub struct Parameters {
+    pub parameters: [ParameterCapsule; NUMBER_OF_PARAMETERS],
+}
+
+impl Parameters {
+    pub fn new() -> Self {
+        type ID = ParameterID;
+        type P = ParameterCapsule;
+
+        let parameters = Self {
+            parameters: [
+                P::new(ID::OscHarmonicRatio, "osc-hrmrat", 32, 'h', 0.2, 2., 1.4),
+                P::new(ID::OscHarmonicGain, "osc-hrmgn", 32, 'g', 0.01, 3., 1.),
+                //envelope
+                P::new(
+                    ID::EnvelopeAttack,
+                    "env-atk",
+                    3,
+                    'a',
+                    envelope::MINIMUM_ENVELOPE_TIME,
+                    envelope::MAXIMUM_ENVELOPE_TIME,
+                    2.,
+                ),
+                P::new(
+                    ID::EnvelopeRelease,
+                    "env-dcy",
+                    3,
+                    'd',
+                    envelope::MINIMUM_ENVELOPE_TIME,
+                    envelope::MAXIMUM_ENVELOPE_TIME,
+                    2.,
+                ),
+                P::new(ID::FilterCutoff, "cutoff", 36, 'c', 20., 20000., 4.),
+                //Delay
+                P::new(
+                    ID::DelayTime,
+                    "dly-time",
+                    4,
+                    't',
+                    buffer::MINIMUM_DELAY_TIME,
+                    buffer::MAXIMUM_DELAY_TIME,
+                    2.,
+                ),
+                P::new(ID::DelayFeedback, "dly-feed", 4, 'f', 0., 0.99, 1.),
+                P::new(ID::DelayDryWet, "dly-wet", 0, 'w', 0., 1., 1.),
+                //global
+                P::new(ID::Volume, "volume", 32, 'v', 0., 1., 2.),
+            ],
+        };
+
+        assert!(parameters.no_id_double());
+        assert!(parameters.no_cc_double());
+        parameters
+    }
+
+    fn no_id_double(&self) -> bool {
+        let mut vector: Vec<ParameterID> = Vec::new();
+        for parameter_capsule in &self.parameters {
+            for id in &vector {
+                if parameter_capsule.id == *id {
+                    return false;
+                }
+            }
+            vector.push(parameter_capsule.id)
+        }
+        return true;
+    }
+
+    fn no_cc_double(&self) -> bool {
+        let mut vector: Vec<char> = Vec::new();
+        for parameter_capsule in &self.parameters {
+            for cc in &vector {
+                if parameter_capsule.parameter.midicc == *cc {
+                    return false;
+                }
+            }
+            vector.push(parameter_capsule.parameter.midicc)
+        }
+        return true;
+    }
+
+    //search the parameter array for the correct id and set the new parameter
+    pub fn set(&mut self, id: ParameterID, mut value: i32) {
+        value = value.clamp(0, 35);
+        for capsule in self.parameters.iter_mut() {
+            if id == capsule.id {
+                capsule.parameter.value = value;
+                return;
+            }
+        }
+        panic!("No parameter named {:?}", id)
+    }
+}
+impl Index<ParameterID> for Parameters {
+    type Output = Parameter;
+    fn index(&self, parameter_id: ParameterID) -> &Self::Output {
+        for parameter_capsule in self.parameters.iter() {
+            if parameter_id == parameter_capsule.id {
+                return &parameter_capsule.parameter;
+            }
+        }
+        panic!("No parameter named {:?}", parameter_id)
+    }
+}
+
+impl IndexMut<ParameterID> for Parameters {
+    fn index_mut(&mut self, parameter_id: ParameterID) -> &mut Self::Output {
+        for parameter_capsule in self.parameters.iter_mut() {
+            if parameter_id == parameter_capsule.id {
+                return &mut parameter_capsule.parameter;
+            }
+        }
+        panic!("No parameter named {:?}", parameter_id)
+    }
+}
+
+enum ParametersEnum {
+    Filter,
+    Volume,
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn basics() {
+        // Check empty list behaves right
+        assert_eq!(true, true);
+    }
+
+    #[test]
+    fn peek() {}
 }

@@ -36,6 +36,11 @@ pub fn convert_ms_to_sample(time: f32, sample_rate: f32) -> f32 {
     return (sample_rate / 1000.) * time;
 }
 
+pub fn rt60_to_gain()->f32{
+    self.gain = -60. * self.loop_time / rt60;
+    self.gain = 10.0_f32.powf(self.gain / 20.0);
+}
+
 pub fn map_value_float_to_int(
     in_min: f32,
     in_max: f32,

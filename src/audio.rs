@@ -1,5 +1,5 @@
-use crate::parameters::Parameter;
-use crate::Synth;
+use crate::parameters::{Parameter, ParameterCapsule, ParameterID};
+use crate::{MidiEvent, ParameterUpdate, Synth};
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     SizedSample,
@@ -8,8 +8,8 @@ use cpal::{FromSample, Sample};
 use std::sync::mpsc::Receiver;
 
 pub fn stream_setup_for(
-    parameter_receiver: Receiver<Parameter>,
-    midi_receiver: Receiver<[u8; 3]>,
+    parameter_receiver: Receiver<ParameterUpdate>,
+    midi_receiver: Receiver<MidiEvent>,
 ) -> Result<cpal::Stream, anyhow::Error>
 where
 {
@@ -70,8 +70,8 @@ pub fn host_device_setup(
 pub fn make_stream<T>(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
-    interface_receiver: Receiver<Parameter>,
-    midi_receiver: Receiver<[u8; 3]>,
+    interface_receiver: Receiver<ParameterUpdate>,
+    midi_receiver: Receiver<MidiEvent>,
 ) -> Result<cpal::Stream, anyhow::Error>
 where
     T: SizedSample + FromSample<f32>,
@@ -88,11 +88,8 @@ where
         config,
         //check for new parameter values
         move |output: &mut [T], _: &cpal::OutputCallbackInfo| {
-            if let Ok(parameter) = interface_receiver.try_recv() {
-                let name = &parameter.name;
-                if let Some(x) = synth.parameters.get_mut(&name as &str) {
-                    *x = parameter;
-                }
+            if let Ok((id, value)) = interface_receiver.try_recv() {
+                synth.set_parameter((id, value))
             }
             //check for new midi value
             if let Ok(midi) = midi_receiver.try_recv() {
@@ -111,7 +108,6 @@ where
 
     Ok(stream)
 }
-
 
 fn process_frame<SampleType>(output: &mut [SampleType], synth: &mut Synth, num_channels: usize)
 where

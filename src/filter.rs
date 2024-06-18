@@ -27,16 +27,14 @@ pub struct Biquad {
 }
 
 impl Biquad {
-    pub fn default(
+    pub fn new(
         sample_rate: f32,
         filter_type: FilterType,
-        frequency_cutoff: f32,
-        resonance: f32,
     ) -> Self {
         let mut biquad = Biquad {
             filter_type,
-            frequency_cutoff,
-            resonance,
+            frequency_cutoff: 440.,
+            resonance: 0.7,
             sample_rate,
             peak_gain: 0.,
             b: [0., 0., 0.],
