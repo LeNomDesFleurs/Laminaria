@@ -5,6 +5,10 @@ use std::error::Error;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use crate::{outils, MidiEvent, ParameterUpdate};
+use crossterm::{
+    cursor, 
+    terminal, 
+};
 
 use crate::parameters::{Parameters, ParameterID};
 use crate::ui::UiEvent;
@@ -19,7 +23,8 @@ pub fn connect_midi(midi_sender: Sender<MidiEvent>, parameter_clone: Arc<Mutex<P
 
     let mut midi_in = MidiInput::new("midir reading input")?;
     midi_in.ignore(Ignore::None);
-
+    println!("{}",terminal::Clear(terminal::ClearType::All));
+    println!("{}", cursor::MoveTo(0, 0));
     // Get an input port (read from console if multiple are available)
     let in_ports = midi_in.ports();
     let in_port = match in_ports.len() {
