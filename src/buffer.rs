@@ -88,6 +88,10 @@ impl RingBuffer {
             InterpolationMode::Allpass => self.allpass_interpolation(),
         }
 
+        if self.freezed && self.step_size < 1.0{
+            self.output_sample /= self.step_size.powf(1.5);
+        }
+
         return self.output_sample;
     }
 

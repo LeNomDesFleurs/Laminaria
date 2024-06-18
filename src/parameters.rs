@@ -182,7 +182,7 @@ impl Parameters {
                 P::new(ID::ReverbDryWet, "rvb-wet", 0, 'r', 0., 1., 1.),
                 P::new(ID::ReverbTime, "rvb-time", 0, '9', 0., 0.99, 1.),
                 //global
-                P::new(ID::Volume, "volume", 32, 'v', 0., 1., 2.),
+                P::new(ID::Volume, "volume", 14, 'v', 0., 2., 2.),
             ],
         };
 
