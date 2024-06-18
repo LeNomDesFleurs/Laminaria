@@ -115,8 +115,8 @@ pub fn ui(parameters: Arc<Mutex<Parameters>>, receive_event: Receiver<UiEvent> )
         let terminal_size = crossterm::terminal::size().unwrap_or(default);
         let bottom = top_selection_index + terminal_size.1 as i32 - 2;
         
-        // if (selected - 3) < top_selection_index as usize && top_selection_index > 0 {top_selection_index -= 1}
-        // if (selected + 3) > bottom as usize && (bottom < local_parameters.len() as i32){top_selection_index+=1}
+        if (selected - 2) < top_selection_index && top_selection_index > 0 {top_selection_index -= 1}
+        if (selected + 2) > bottom && (bottom < local_parameters.len() as i32){top_selection_index+=1}
         //in top to generate the display at least once at the begginning, and then wait for new input
         update_display(&local_parameters, selected, top_selection_index, terminal_size.1 as i32);
         
