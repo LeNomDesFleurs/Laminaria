@@ -17,10 +17,10 @@ use crossterm::{
 use std::collections::HashMap;
 use std::io::Result;
 use std::io::ErrorKind;
-use crate::{parameters, ParameterUpdate};
+use crate::{parameters, MidiEvent, ParameterUpdate};
 use parameters::ParameterCapsule;
-
 pub type UiEvent= Option<i32>;
+use crate::midi::connect_midi;
 
 
 //little enum that allow me to simplify the key_code match by deferring all the mutex work to a more convenient and centralized place
@@ -31,10 +31,17 @@ enum ParameterModified{
     SetValue(char),
 }
 
-pub fn interaction(parameters: Arc<Mutex<Parameters>>, param_sender: Sender<ParameterUpdate>, gui_sender: Sender<UiEvent>)->Result<()>{
+pub fn interaction(parameters: Arc<Mutex<Parameters>>, param_sender: Sender<ParameterUpdate>, gui_sender: Sender<UiEvent>, midi_sender: Sender<MidiEvent>)->Result<()>{
     
     let mut selected: i32 = 0;
     //use this to get a name vector, il allow me to refer to a parameter via it's index rather than it's name
+    // need to get the midi as a variable to keep it in scope
+    let mut _midi_connection = match connect_midi(midi_sender.clone(), parameters.clone(), param_sender.clone(), gui_sender.clone()){
+        Ok(midi_connection)=> midi_connection,
+        Err(error) => panic!("can't connect to midi: {:?}", error)
+    };
+
+    gui_sender.send(None).map_err(|_err| std::io::Error::new(ErrorKind::Other,"no gui receiver"))?;
 
     let mut parameters_modified: Option<ParameterModified>; 
     enable_raw_mode().unwrap();
@@ -52,6 +59,14 @@ pub fn interaction(parameters: Arc<Mutex<Parameters>>, param_sender: Sender<Para
             KeyCode::Right => {parameters_modified=Some(ParameterModified::Increment)}
             KeyCode::Left => {parameters_modified=Some(ParameterModified::Decrement)}
             KeyCode::Char(char) => {parameters_modified=Some(ParameterModified::SetValue(char))}
+            KeyCode::Tab=> {
+                disable_raw_mode().unwrap();
+                _midi_connection= match connect_midi(midi_sender.clone(), parameters.clone(), param_sender.clone(), gui_sender.clone()){
+                Ok(midi_connection)=> midi_connection,
+                Err(error) => panic!("can't connect to midi: {:?}", error)
+            };
+            enable_raw_mode().unwrap();
+}
             // Key::Ctrl('q') => self.should_quit = true,
             _ => {},
         }
@@ -85,6 +100,13 @@ pub fn ui(parameters: Arc<Mutex<Parameters>>, receive_event: Receiver<UiEvent> )
     let default = (10 as u16, 10 as u16);
     //use this to get a name vector, il allow me to refer to a parameter via it's index rather than it's name
     loop{
+        let event = receive_event.recv().map_err(|_err| std::io::Error::new(ErrorKind::Other,"no gui sender"))?;
+
+        //check if the event contain an new index value, if yes, apply
+        selected = match event{ 
+            Some(new_index) => {new_index}
+            None => {selected}
+        };
         //need to be updated a each iteration to get new values 
         local_parameters.clear();
         for parameter in parameters.lock().unwrap().parameters.iter(){
@@ -97,13 +119,7 @@ pub fn ui(parameters: Arc<Mutex<Parameters>>, receive_event: Receiver<UiEvent> )
         // if (selected + 3) > bottom as usize && (bottom < local_parameters.len() as i32){top_selection_index+=1}
         //in top to generate the display at least once at the begginning, and then wait for new input
         update_display(&local_parameters, selected, top_selection_index, terminal_size.1 as i32);
-        let event = receive_event.recv().map_err(|_err| std::io::Error::new(ErrorKind::Other,"no gui sender"))?;
-
-        //check if the event contain an new index value, if yes, apply
-        selected = match event{ 
-            Some(new_index) => {new_index}
-            None => {selected}
-        }
+        
     }
 }
 fn update_display(parameters:&Vec<Parameter>, selected:i32, top_selection_index:i32, size: i32){

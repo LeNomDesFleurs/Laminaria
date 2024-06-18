@@ -74,11 +74,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let stream = audio::stream_setup_for(parameter_receiver, midi_receiver)?;
     stream.play()?;
     
-    // need to get the midi as a variable to keep it in scope
-    let _midi_connection = match midi::connect_midi(midi_sender, parameters_clone_midi, parameter_sender_midi_thread, ui_sender_midi_thread){
-        Ok(midi_connection)=> midi_connection,
-        Err(error) => panic!("can't connect to midi: {:?}", error)
-    };
+    
 
     // set default value
     for caps in Parameters::new().parameters{
@@ -87,7 +83,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let _ui_thread= std::thread::Builder::new().name("UI".to_string()).spawn(move||{ui::ui(parameters_clone_ui, ui_receiver)});
 
-    ui::interaction(parameters_clone_interaction, parameter_sender_interaction_thread, ui_sender_interaction_thread);
+    ui::interaction(parameters_clone_interaction, parameter_sender_interaction_thread, ui_sender_interaction_thread, midi_sender);
 
 
     Ok(())
