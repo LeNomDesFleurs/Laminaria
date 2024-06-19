@@ -1,6 +1,6 @@
 # *Laminaria*, a compagnon for [ORCΛ](https://github.com/hundredrabbits/Orca)
 
-Laminaria is polyphonic Terminal based audio synth made in Rust.
+Laminaria is a polyphonic Terminal based audio synth made in Rust.
 
 This is a learning repo, goals are :
  - Receive MIDI
@@ -10,7 +10,8 @@ This is a learning repo, goals are :
 ## 🔈 Audio demo
 You can do a bunch a things but I did glitchy ambient cause that is who I am (made with two units sequenced by ORCΛ, no other effects involved)
 
-<audio controls src="sounddemo.mp3" title="Title"></audio>
+[Click here to open the sound demo](https://lndf.fr/Media/Laminaria-sounddemo.mp3)
+
 ## 🛒 Get it
 
 Clone this repo and `cargo build --release`, then run `Laminaria` in `target/release/`.
