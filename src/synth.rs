@@ -4,6 +4,7 @@ use crate::buffer;
 use crate::buffer::DelayLine;
 use crate::envelope;
 use crate::envelope::Envelope;
+use crate::midi::MidiMessage;
 use crate::midibuffer::PolyMidiBuffer;
 use crate::parameters::ParameterID;
 use crate::Biquad;
@@ -39,11 +40,11 @@ impl Synth {
             // parameters: Parameters {},
         }
     }
-    pub fn set_note(&mut self, midi_note: u8, note_on: bool) {
-        if note_on {
-            self.midibuffer.add_note(midi_note);
-        } else {
-            self.midibuffer.remove_note(midi_note);
+    pub fn set_note(&mut self, message: MidiMessage) {
+        match message {
+            MidiMessage::NoteOff(midi_note)=>self.midibuffer.remove_note(midi_note),
+            MidiMessage::NoteOn(midi_note)=>self.midibuffer.add_note(midi_note),
+            _ => {}
         }
 
         for i in VOICE_ITERATOR {

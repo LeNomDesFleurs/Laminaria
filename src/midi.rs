@@ -1,87 +1,186 @@
-use midir::{Ignore, MidiInput, MidiInputConnection};
-use std::sync::mpsc::Sender;
-use std::io::{stdin, stdout, Write};
-use std::error::Error;
-use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
-use crate::{outils, MidiEvent, ParameterUpdate};
+use crate::{outils, ParameterUpdate};
 use crossterm::{
-    cursor, 
-    terminal, 
+    cursor, event, event::Event, event::KeyCode, event::KeyEvent, event::KeyModifiers,
+    style::Stylize, terminal,
 };
+use midir::{Ignore, MidiInput, MidiInputConnection};
+use std::collections::HashMap;
+use std::error::Error;
+use std::sync::mpsc::Sender;
+use std::sync::{Arc, Mutex};
 
-use crate::parameters::{Parameters, ParameterID};
+const NOTE_OFF_MASK: u8 = 0b1000_0000;
+const NOTE_ON_MASK: u8 = 0b1001_0000;
+const POLYPHONIC_KEY_PRESSURE_MASK: u8 = 0b1010_0000;
+const CONTROL_CHANGE_MASK: u8 = 0b1011_0000;
+const PROGRAM_CHANGE_MASK: u8 = 0b1100_0000;
+const CHANNEL_PRESSURE_MASK: u8 = 0b1101_0000;
+const PITCH_BEND_MASK: u8 = 0b1110_0000;
+const SYSTEM_MASK: u8 = 0b1111_0000;
+
+const SYSEX_START_CODE: u8 = 0b1111_0000;
+const MTC_QUARTER_FRAME_CODE: u8 = 0b1111_0001;
+const SONG_POSITION_POINTER_CODE: u8 = 0b1111_0010;
+const SONG_SELECT_CODE: u8 = 0b1111_0011;
+const TUNE_REQUEST_CODE: u8 = 0b1111_0110;
+const SYSEX_END_CODE: u8 = 0b1111_0111;
+
+const TIMING_CLOCK_CODE: u8 = 0b1111_1000;
+const START_CODE: u8 = 0b1111_1010;
+const CONTINUE_CODE: u8 = 0b1111_1011;
+const STOP_CODE: u8 = 0b1111_1100;
+const ACTIVE_SENSING_CODE: u8 = 0b1111_1110;
+const SYSTEM_RESET_CODE: u8 = 0b1111_1111;
+
+pub enum MidiMessage {
+    ///note number
+    NoteOff(u8),
+    ///note number
+    NoteOn(u8),
+    ControlChange(u8, u8),
+    None,
+}
+
+//stole from https://github.com/chris-zen/kiro-synth/blob/master/kiro-midi-core/src/decoder.rs
+///take message one and two, return the channel and the midiMessage
+/// * `status` - first midi message, contain the event type and the channel index
+/// * `note` - second midi message, contain the note number / cc index
+/// * `velocity` - third midi message, contain the velocity / cc value
+fn raw_midi_to_message(status: u8, note: u8, velocity: u8) -> (u8, MidiMessage) {
+    let channel = status & 0x0f;
+    type MM = MidiMessage;
+    match status & 0xf0 {
+        NOTE_OFF_MASK => (channel, MM::NoteOff(note)),
+        NOTE_ON_MASK => (channel, MM::NoteOn(note)),
+        CONTROL_CHANGE_MASK => (channel, MM::ControlChange(note, velocity)),
+        _ => (channel, MM::None),
+    }
+}
+
+use crate::parameters::{ParameterID, Parameters};
 use crate::ui::UiEvent;
 
-pub fn connect_midi(midi_sender: Sender<MidiEvent>, parameter_clone: Arc<Mutex<Parameters>>, parameter_sender: Sender<ParameterUpdate>, gui_sender:Sender<UiEvent>) -> Result<MidiInputConnection<()>, Box<dyn Error>> {
+pub fn connect_midi(
+    midi_sender: Sender<MidiMessage>,
+    parameter_clone: Arc<Mutex<Parameters>>,
+    parameter_sender: Sender<ParameterUpdate>,
+    gui_sender: Sender<UiEvent>,
+    channel_index: Arc<Mutex<u8>>,
+) -> Result<(MidiInputConnection<()>, String), Box<dyn Error>> {
     let mut midicc_hash: HashMap<u8, ParameterID> = HashMap::new();
-    for capsule in parameter_clone.lock().unwrap().parameters.iter(){
+    for capsule in parameter_clone.lock().unwrap().parameters.iter() {
         let id = capsule.id;
         let cc = capsule.parameter.midicc;
         midicc_hash.insert(outils::get_orca_integer(cc).unwrap_or(0), id);
     }
-
+    let mut selection = 0;
     let mut midi_in = MidiInput::new("midir reading input")?;
     midi_in.ignore(Ignore::None);
-    println!("{}",terminal::Clear(terminal::ClearType::All));
+    println!("{}", terminal::Clear(terminal::ClearType::All));
     println!("{}", cursor::MoveTo(0, 0));
     // Get an input port (read from console if multiple are available)
     let in_ports = midi_in.ports();
-    let in_port = match in_ports.len() {
+    let number_of_option = in_ports.len();
+    let in_port = match number_of_option {
         0 => return Err("no input port found".into()),
         1 => {
-            println!(
-                "Choosing the only available input port: {}",
-                midi_in.port_name(&in_ports[0]).unwrap()
-            );
+            //choose the only connection avaible
             &in_ports[0]
         }
         _ => {
-            println!("\nAvailable input ports:");
-            for (i, p) in in_ports.iter().enumerate() {
-                println!("{}: {}", i, midi_in.port_name(p).unwrap());
+            loop {
+                println!("{}", terminal::Clear(terminal::ClearType::All));
+                println!("{}", cursor::MoveTo(0, 0));
+                println!("\nAvailable input ports (use arrow and enter):\r\n");
+                for (i, p) in in_ports.iter().enumerate() {
+                    // println!("{}: {}", i, midi_in.port_name(p).unwrap());
+                    if i == selection {
+                        println!(
+                            "\r -> {}",
+                            midi_in.port_name(p).unwrap().bold().italic()
+                        )
+                    } else {
+                        println!("\r    {}", midi_in.port_name(p).unwrap())
+                    }
+                }
+
+                if let Event::Key(KeyEvent { code, .. }) = event::read()
+                    .unwrap_or(Event::Key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE)))
+                {
+                    match code {
+                        KeyCode::Enter => {
+                            print!("{}", terminal::Clear(terminal::ClearType::All));
+                            print!("{}", cursor::MoveTo(0, 0));
+                            break;
+                        }
+                        KeyCode::Down => {
+                            if selection < number_of_option-1{
+                                selection += 1;
+                            }
+                        }
+                        KeyCode::Up => {
+                            if selection > 0{
+                            selection -= 1;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
             }
-            print!("Please select input port: ");
-            stdout().flush()?;
-            let mut input = String::new();
-            stdin().read_line(&mut input)?;
             in_ports
-                .get(input.trim().parse::<usize>()?)
+                .get(selection)
                 .ok_or("invalid input port selected")?
         }
     };
 
     println!("\nOpening connection");
 
+    let port_name = midi_in.port_name(&in_ports[selection]).unwrap();
+
     // _conn_in needs to be a named parameter, because it needs to be kept alive until the end of the scope
-    let _conn_in = midi_in.connect(
-        in_port,
-        "midir-read-input",
-        move |_stamp, message, _| {
-            // println!("{}: {:?} (len = {})", stamp, message, message.len());
-            //check if CC
-            if message[0]==176{
-                //try to get parameter name from name table
-                match midicc_hash.get(&message[1]) {
-                    Some(id) =>{
-                    //convert midi 127 to orca 36
-                    let value = ((message[2] as f32/127.) *36.).floor() as i32;
-                    //should clean this someday, the left field refer to the value of the parameter <id>
-                    let parameter_binding = &mut parameter_clone.lock().unwrap()[*id];
-                    parameter_binding.value=value;
-                    let raw_value = parameter_binding.get_raw_value();
-                    parameter_sender.send((*id, raw_value)).unwrap();
-                    gui_sender.send(None).unwrap();}
-                    //if cc is not bounded, do nothing
-                    None=>{}
+    let _conn_in = (
+        midi_in.connect(
+            in_port,
+            "midir-read-input",
+            move |_stamp, message, _| {
+                // println!("{}: {:?}", _stamp, message);
+                let (channel, midi_message) =
+                    raw_midi_to_message(message[0], message[1], message[2]);
+                //check if CC
+                if channel == *channel_index.lock().unwrap() {
+                    match midi_message {
+                        MidiMessage::ControlChange(cc, midi_value) => {
+                            //try to get parameter name from name table
+                            match midicc_hash.get(&cc) {
+                                Some(id) => {
+                                    //convert midi 127 to orca 36
+                                    let orca_value =
+                                        ((midi_value as f32 / 127.) * 36.).floor() as i32;
+                                    let parameter_binding =
+                                        &mut parameter_clone.lock().unwrap()[*id];
+                                    parameter_binding.value = orca_value;
+                                    let raw_value = parameter_binding.get_raw_value();
+                                    parameter_sender.send((*id, raw_value)).unwrap();
+                                    gui_sender.send(UiEvent::Refresh).unwrap();
+                                }
+                                //if cc is not bounded, do nothing
+                                None => {}
+                            }
+                        }
+                        MidiMessage::NoteOff(note) => {
+                            midi_sender.send(MidiMessage::NoteOff(note)).unwrap()
+                        }
+                        MidiMessage::NoteOn(note) => {
+                            midi_sender.send(MidiMessage::NoteOn(note)).unwrap()
+                        }
+                        MidiMessage::None => {}
+                    }
                 }
-            }
-            //else send note
-            // unwrap cause I can't return the error in this closure (so maybe I shouldn't use it here altogether 😬)
-            midi_sender.send([message[0], message[1], message[2]]).unwrap();
-        },
-        (),
-    )?;
+            },
+            (),
+        )?,
+        port_name,
+    );
 
     Ok(_conn_in)
 }

@@ -1,4 +1,4 @@
-use crate::{MidiEvent, ParameterUpdate, Synth};
+use crate::{ midi::MidiMessage, ParameterUpdate, Synth};
 use cpal::{
     traits::{DeviceTrait, HostTrait},
     SizedSample,
@@ -8,7 +8,7 @@ use std::sync::mpsc::Receiver;
 
 pub fn stream_setup_for(
     parameter_receiver: Receiver<ParameterUpdate>,
-    midi_receiver: Receiver<MidiEvent>,
+    midi_receiver: Receiver<MidiMessage>,
 ) -> Result<cpal::Stream, anyhow::Error>
 where
 {
@@ -70,7 +70,7 @@ pub fn make_stream<T>(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
     interface_receiver: Receiver<ParameterUpdate>,
-    midi_receiver: Receiver<MidiEvent>,
+    midi_receiver: Receiver<MidiMessage>,
 ) -> Result<cpal::Stream, anyhow::Error>
 where
     T: SizedSample + FromSample<f32>,
@@ -91,12 +91,8 @@ where
                 synth.set_parameter((id, value))
             }
             //check for new midi value
-            if let Ok(midi) = midi_receiver.try_recv() {
-                if midi[0] == 144 {
-                    synth.set_note(midi[1], true);
-                } else if midi[0] == 128 {
-                    synth.set_note(midi[1], false);
-                }
+            if let Ok(message) = midi_receiver.try_recv() {
+                synth.set_note(message);
             }
             //process buffer
             process_frame(output, &mut synth, num_channels)

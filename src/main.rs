@@ -26,7 +26,6 @@ mod reverb;
 Good starting point for integration of cpal into your application.
 */
 type ParameterUpdate = (ParameterID, f32);
-type MidiEvent = [u8; 3];
 use std::error::Error;
 extern crate anyhow;
 extern crate clap;
@@ -36,6 +35,7 @@ use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{Receiver, Sender};
 use crate::cpal::traits::StreamTrait;
 use crossterm::terminal::disable_raw_mode;
+use crate::midi::MidiMessage;
 
 pub use crossterm::{
     cursor,
@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // }));
     let (parameter_sender, parameter_receiver):(Sender<ParameterUpdate>, Receiver<ParameterUpdate>) = channel();
     let (ui_sender, ui_receiver):(Sender<ui::UiEvent>, Receiver<ui::UiEvent>) = channel();
-    let (midi_sender, midi_receiver):(Sender<MidiEvent>, Receiver<MidiEvent>) = channel();
+    let (midi_sender, midi_receiver):(Sender<MidiMessage>, Receiver<MidiMessage>) = channel();
 
     let parameters = Parameters::new(); 
     let parameters_mutex = Arc::new(Mutex::new(parameters));
