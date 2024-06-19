@@ -8,7 +8,7 @@ This is a learning repo, goals are :
  - Use channels, mutexes and arc to manage thread concurrency 
 
 ## 🔈 Audio demo
-You can do a bunch a things but I did glitchy ambient cause that is who I am (made with two units sequenced by ORCΛ)
+You can do a bunch a things but I did glitchy ambient cause that is who I am (made with two units sequenced by ORCΛ, no other effects involved)
 
 <audio controls src="sounddemo.mp3" title="Title"></audio>
 ## 🛒 Get it
@@ -19,7 +19,7 @@ You can also use `cargo run` for a quick launch, but it will be less efficient.
 ## ⌨️ Key :
 - `Esc` - quit
 - `⬆ | ⬇` - select param
-- `⬅ | ➡` - increment or decrement parameter
+- `← | →` - increment or decrement parameter
 - `[letter | number]` - set the value of the parameter
 - `>` - Increment midi channel
 - `<` - decrement midi channel
