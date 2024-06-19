@@ -70,7 +70,7 @@ pub fn interaction(
         ui_event = UiEvent::Refresh;
         parameters_modified = None;
         match code {
-            KeyCode::Enter => {
+            KeyCode::Esc => {
                 disable_raw_mode().unwrap();
                 execute!(std::io::stdout(), cursor::Show)?;
                 println!("{}", terminal::Clear(terminal::ClearType::All));
