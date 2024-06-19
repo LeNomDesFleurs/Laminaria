@@ -19,7 +19,7 @@ You can also use `cargo run` for a quick launch, but it will be less efficient.
 
 ## ⌨️ Key :
 - `Esc` - quit
-- `⬆ | ⬇` - select param
+- `↑ | ↓` - select param
 - `← | →` - increment or decrement parameter
 - `[letter | number]` - set the value of the parameter
 - `>` - Increment midi channel
