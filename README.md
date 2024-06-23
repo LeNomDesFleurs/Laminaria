@@ -7,6 +7,8 @@ This is a learning repo, goals are :
  - Generate Sound
  - Use channels, mutexes and arc to manage thread concurrency 
 
+More info about the architecture on [this blog post](https://lndf.fr/Projects/Laminaria/Laminaria.html)
+
 ## 🔈 Audio demo
 You can do a bunch a things but I did glitchy ambient cause that is who I am (made with two units sequenced by ORCΛ, no other effects involved)
 
