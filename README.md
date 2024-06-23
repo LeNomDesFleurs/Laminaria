@@ -1,4 +1,4 @@
-# *Laminaria*, a compagnon for [ORCΛ](https://github.com/hundredrabbits/Orca)
+# 🪸 *Laminaria*, a compagnon for [ORCΛ](https://github.com/hundredrabbits/Orca) 
 
 Laminaria is a polyphonic Terminal based audio synth made in Rust.
 
@@ -21,7 +21,7 @@ You can also use `cargo run` for a quick launch, but it will be less efficient.
 
 ## ⌨️ Key :
 - `Esc` - quit
-- `⬆ | ⬇` - select param
+- `↑ | ↓` - select param
 - `← | →` - increment or decrement parameter
 - `[letter | number]` - set the value of the parameter
 - `>` - Increment midi channel
@@ -78,5 +78,7 @@ I may do a proper boilerplate someday, as of now it should already be pretty hac
 - midir for midi
 - cross term for terminal I/O
 
+##
+Don't hesitate to ask questions !
 ##
 ![picture](/Laminaria.jpg)
