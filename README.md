@@ -1,4 +1,4 @@
-# 🪸 *Laminaria*, a compagnon for [ORCΛ](https://github.com/hundredrabbits/Orca) 
+# 🪸 *Laminaria* - compagnon for [ORCΛ](https://github.com/hundredrabbits/Orca) 
 
 Laminaria is a polyphonic Terminal based audio synth made in Rust.
 
