@@ -10,7 +10,7 @@ use parameters::ParameterCapsule;
 use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::io::Result;
-use std::os::macos::raw;
+// use std::os::macos::raw;
 use std::sync::{mpsc::Receiver, mpsc::Sender, Arc, Mutex};
 // pub type UiEvent = Option<i32>;
 use crate::midi::{connect_midi, MidiMessage};
