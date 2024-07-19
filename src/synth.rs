@@ -7,11 +7,12 @@ use crate::envelope::Envelope;
 use crate::midi::MidiMessage;
 use crate::midibuffer::PolyMidiBuffer;
 use crate::parameters::ParameterID;
+use crate::reverb::Reverb;
 use crate::Biquad;
 use crate::HarmonicOscillator;
-use crate::reverb::Reverb;
 type ID = ParameterID;
 use crate::ParameterUpdate;
+use rustfft::{num_complex::Complex, FftPlanner};
 
 const NUMBER_OF_VOICES: usize = 4;
 const VOICE_ITERATOR: std::ops::Range<usize> = 0..NUMBER_OF_VOICES;
@@ -25,6 +26,9 @@ pub struct Synth {
     low_pass: Biquad,
     //parameters
     volume: f32,
+    fft_threshold: f32,
+    fft_buffer_in: Vec<f32>,
+    fft_buffer_out: Vec<f32>,
 }
 
 impl Synth {
@@ -37,13 +41,16 @@ impl Synth {
             low_pass: Biquad::new(sample_rate, crate::filter::FilterType::LPF),
             delay: DelayLine::new(sample_rate, buffer::MAXIMUM_DELAY_TIME),
             volume: 0.5,
+            fft_threshold: 1.,
+            fft_buffer_in: Vec::new(),
+            fft_buffer_out: Vec::new(),
             // parameters: Parameters {},
         }
     }
     pub fn set_note(&mut self, message: MidiMessage) {
         match message {
-            MidiMessage::NoteOff(midi_note)=>self.midibuffer.remove_note(midi_note),
-            MidiMessage::NoteOn(midi_note)=>self.midibuffer.add_note(midi_note),
+            MidiMessage::NoteOff(midi_note) => self.midibuffer.remove_note(midi_note),
+            MidiMessage::NoteOn(midi_note) => self.midibuffer.add_note(midi_note),
             _ => {}
         }
 
@@ -107,6 +114,46 @@ impl Synth {
         sample = self.delay.process(sample);
         sample = self.reverb.process(sample);
 
+
+        // let mut planner = FftPlanner::new();
+        //     let fft = planner.plan_fft_forward(512);
+        //     let ifft = planner.plan_fft_inverse(512);
+
+
+        // self.fft_buffer_in.push(sample);
+
+        // if self.fft_buffer_in.len() == 512{
+        //     let mut buffer : Vec<Complex<f32>> = vec![];
+
+        //     for sample in &self.fft_buffer_in{
+        //         buffer.push(Complex{re: *sample, im:0.0});
+        //     }
+
+        //     self.fft_buffer_in.clear();
+
+        //     fft.process(&mut buffer);
+
+        //     for complex in buffer.iter_mut(){
+        //             let c = (complex.re.powi(2) + complex.im.powi(2)).sqrt();
+        //             if c < self.fft_threshold {
+        //                 complex.re = 0.;
+        //                 complex.im = 0.;
+        //             }
+        //             // let d =  (*complex.re / *complex.im).atan();
+        //             // *a = c;
+        //             // *b = d;
+        //     }
+
+        //     ifft.process(&mut buffer);
+
+        //     for complex in buffer {
+        //         self.fft_buffer_out.push(complex.re);
+        //     }
+        // }
+
+        // sample = self.fft_buffer_out.pop().unwrap_or(0.0);
+
+
         //vca
         sample *= self.volume;
 
@@ -137,18 +184,14 @@ impl Synth {
             ID::ReverbDryWet => self.reverb.set_reverb_time(new_value),
             ID::ReverbTime => self.reverb.dry_wet = new_value,
             //oscillator
-            ID::OscHarmonicGain =>
-            {
-                self.oscillators
-                    .iter_mut()
-                    .for_each(|osc| osc.harmonic_gain_exponent = new_value)
-            }
-            ID::OscHarmonicRatio =>
-            {
-                self.oscillators
-                    .iter_mut()
-                    .for_each(|osc| osc.harmonic_index_increment = new_value)
-            }
+            ID::OscHarmonicGain => self
+                .oscillators
+                .iter_mut()
+                .for_each(|osc| osc.harmonic_gain_exponent = new_value),
+            ID::OscHarmonicRatio => self
+                .oscillators
+                .iter_mut()
+                .for_each(|osc| osc.harmonic_index_increment = new_value),
             // envelope
             ID::EnvelopeAttack => self
                 .envelopes
@@ -166,6 +209,7 @@ impl Synth {
                 self.delay.set_freeze(new_value > 0.99);
                 self.delay.set_feedback(new_value)
             }
+            ID::FftTrehsold => self.fft_threshold = new_value,
         }
     }
 }

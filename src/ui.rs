@@ -6,11 +6,8 @@ use crossterm::{
     cursor, event, event::Event, event::KeyCode, event::KeyEvent, event::KeyModifiers,
     style::Stylize, terminal, terminal::disable_raw_mode, terminal::enable_raw_mode,
 };
-use parameters::ParameterCapsule;
-use std::collections::HashMap;
 use std::io::ErrorKind;
 use std::io::Result;
-// use std::os::macos::raw;
 use std::sync::{mpsc::Receiver, mpsc::Sender, Arc, Mutex};
 // pub type UiEvent = Option<i32>;
 use crate::midi::{connect_midi, MidiMessage};

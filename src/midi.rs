@@ -143,10 +143,17 @@ pub fn connect_midi(
             in_port,
             "midir-read-input",
             move |_stamp, message, _| {
-                // println!("{}: {:?}", _stamp, message);
-                let (channel, midi_message) =
+                let (channel, midi_message): (u8, MidiMessage);
+                if message.len()<3{
+                    (channel, midi_message) =
+                        raw_midi_to_message(message[0], 0, 0);
+                }
+                else {
+                    (channel, midi_message) =
                     raw_midi_to_message(message[0], message[1], message[2]);
+                }
                 //check if CC
+                // println!("{}: {:?}", _stamp, message);
                 if channel == *channel_index.lock().unwrap() {
                     match midi_message {
                         MidiMessage::ControlChange(cc, midi_value) => {
