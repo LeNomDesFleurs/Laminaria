@@ -65,7 +65,7 @@ The Reverb is just 5 allpass filters in series, there are a lot of resonance due
 
 ## ⛳️ Flags
 
--p --port <number> let you set the midi channel at startup
+-c --channel <number> let you set the midi channel at startup
 
 ## 👩🏿‍💻 Hack it
 
