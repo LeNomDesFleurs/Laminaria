@@ -63,6 +63,10 @@ Amplitude Envelope are basic `ASR`. The sum of oscillators goes to a classic `lo
 It then goes trough two `FX`, `delay` and `Reverb`. If you put the delay feedback to max, it loops the captured sound. Delay time will then pitch the sound up and down (which is the coolest thing to do with this synth).
 The Reverb is just 5 allpass filters in series, there are a lot of resonance due to feedback.
 
+## ⛳️ Flags
+
+-p --port <number> let you set the midi channel at startup
+
 ## 👩🏿‍💻 Hack it
 
 I may do a proper boilerplate someday, as of now it should already be pretty hackable :
