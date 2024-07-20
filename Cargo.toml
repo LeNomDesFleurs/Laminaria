@@ -9,7 +9,7 @@ edition = "2021"
 lazy_static="1"
 cpal = "0"
 anyhow = "1"
-clap = "1"
 midir = "0.10.0"
 crossterm = "0.27.0"
 rustfft = "6.2.0"
+clap = { version = "4.5.9", features = ["derive"] }

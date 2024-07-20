@@ -33,12 +33,13 @@ pub fn keyboard_input(
     param_sender: Sender<ParameterUpdate>,
     gui_sender: Sender<UiEvent>,
     midi_sender: Sender<MidiMessage>,
+    midi_channel: u8,
 ) -> Result<()> {
     enable_raw_mode().unwrap();
     execute!(std::io::stdout(), cursor::Hide)?;
 
     let mut selected: i32 = 0;
-    let midi_channel = Arc::new(Mutex::new(0 as u8));
+    let midi_channel = Arc::new(Mutex::new(midi_channel));
     // need to get the midi as a variable to keep it in scope
     let mut _midi_connection = match connect_midi(
         midi_sender.clone(),
@@ -59,6 +60,10 @@ pub fn keyboard_input(
     gui_sender
         .send(UiEvent::Refresh)
         .map_err(|_err| std::io::Error::new(ErrorKind::Other, "no gui receiver"))?;
+    gui_sender
+        .send(UiEvent::UpdateMidiChannel(*midi_channel.lock().unwrap()))
+        .map_err(|_err| std::io::Error::new(ErrorKind::Other, "no gui receiver"))?;
+    
 
     let mut parameters_modified: Option<ParameterModified>;
     let mut ui_event = UiEvent::Refresh;

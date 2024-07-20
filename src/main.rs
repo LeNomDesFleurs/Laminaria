@@ -1,3 +1,4 @@
+//PERSO
 mod audio;
 mod midi;
 mod parameters;
@@ -21,20 +22,30 @@ pub use textparsing::TextCharacteristic;
 mod envelope;
 mod midibuffer;
 mod reverb;
-/* This example expose parameter to pass generator of sample.
-Good starting point for integration of cpal into your application.
-*/
+
 type ParameterUpdate = (ParameterID, f32);
+
+//std and extern stuff
 use std::error::Error;
 extern crate anyhow;
 extern crate clap;
+use crate::clap::Parser;
 extern crate cpal;
 use crate::cpal::traits::StreamTrait;
 use crate::midi::MidiMessage;
-use crossterm::terminal::disable_raw_mode;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
+use std::env;
+
+/// Simple program to greet a person
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Name of the person to greet
+    #[arg(short, long, default_value_t = 0)]
+    port: u8,
+}
 
 pub use crossterm::{
     cursor,
@@ -45,13 +56,15 @@ pub use crossterm::{
 };
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // disable_raw_mode().unwrap();
+    let args = Args::parse();
+    let midi_channel: u8;
 
-    // use std::panic;
+    if args.port > 15 {
+        midi_channel = 15
+    } else {
+        midi_channel = args.port;
+    }
 
-    // panic::set_hook(Box::new(|_| {
-    //     disable_raw_mode().unwrap();
-    // }));
     let (parameter_sender, parameter_receiver): (
         Sender<ParameterUpdate>,
         Receiver<ParameterUpdate>,
@@ -85,6 +98,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         parameter_sender_interaction_thread,
         ui_sender_interaction_thread,
         midi_sender,
+        midi_channel,
     );
 
     Ok(())
