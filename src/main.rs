@@ -59,10 +59,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
     let midi_channel: u8;
 
-    if args.port > 15 {
+    if args.channel > 15 {
         midi_channel = 15
     } else {
-        midi_channel = args.port;
+        midi_channel = args.channel;
     }
 
     let (parameter_sender, parameter_receiver): (
