@@ -251,3 +251,50 @@ fn update_display(
         print! {"\r\n"};
     }
 }
+
+
+pub fn option_menu(options: Vec<String>)-> usize{
+
+    let mut selection:usize = 0;
+    loop {
+                println!("{}", terminal::Clear(terminal::ClearType::All));
+                println!("{}", cursor::MoveTo(0, 0));
+                println!("\nAvailable input ports (use arrow and enter):\r\n");
+                for (i, p) in options.iter().enumerate() {
+                    // if the options is the currently selected, write it in bold
+                    if i == selection as usize {
+                        println!(
+                            "\r -> {}",
+                            p.clone().bold().italic()
+                        )
+                    } else {
+                        println!("\r    {}", p)
+                    }
+                }
+
+                if let Event::Key(KeyEvent { code, .. }) = event::read()
+                    .unwrap_or(Event::Key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE)))
+                {
+                    match code {
+                        KeyCode::Enter => {
+                            print!("{}", terminal::Clear(terminal::ClearType::All));
+                            print!("{}", cursor::MoveTo(0, 0));
+                            break;
+                        }
+                        KeyCode::Down => {
+                            if selection < options.len() - 1{
+                                selection += 1;
+                            }
+                        }
+                        KeyCode::Up => {
+                            if selection > 0{
+                            selection -= 1;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+    return selection;
+}

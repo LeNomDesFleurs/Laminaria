@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
+use crate::ui::option_menu;
 
 const NOTE_OFF_MASK: u8 = 0b1000_0000;
 const NOTE_ON_MASK: u8 = 0b1001_0000;
@@ -88,45 +89,11 @@ pub fn connect_midi(
             &in_ports[0]
         }
         _ => {
-            loop {
-                println!("{}", terminal::Clear(terminal::ClearType::All));
-                println!("{}", cursor::MoveTo(0, 0));
-                println!("\nAvailable input ports (use arrow and enter):\r\n");
-                for (i, p) in in_ports.iter().enumerate() {
-                    // println!("{}: {}", i, midi_in.port_name(p).unwrap());
-                    if i == selection {
-                        println!(
-                            "\r -> {}",
-                            midi_in.port_name(p).unwrap().bold().italic()
-                        )
-                    } else {
-                        println!("\r    {}", midi_in.port_name(p).unwrap())
-                    }
+            let mut options:Vec<String>= vec![];
+             for (i, p) in in_ports.iter().enumerate() {
+                    options.push(midi_in.port_name(p).unwrap());
                 }
-
-                if let Event::Key(KeyEvent { code, .. }) = event::read()
-                    .unwrap_or(Event::Key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE)))
-                {
-                    match code {
-                        KeyCode::Enter => {
-                            print!("{}", terminal::Clear(terminal::ClearType::All));
-                            print!("{}", cursor::MoveTo(0, 0));
-                            break;
-                        }
-                        KeyCode::Down => {
-                            if selection < number_of_option-1{
-                                selection += 1;
-                            }
-                        }
-                        KeyCode::Up => {
-                            if selection > 0{
-                            selection -= 1;
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-            }
+            selection = option_menu(options);
             in_ports
                 .get(selection)
                 .ok_or("invalid input port selected")?
@@ -135,7 +102,7 @@ pub fn connect_midi(
 
     println!("\nOpening connection");
 
-    let port_name = midi_in.port_name(&in_ports[selection]).unwrap();
+    let port_name = midi_in.port_name(&in_ports[selection as usize]).unwrap();
 
     // _conn_in needs to be a named parameter, because it needs to be kept alive until the end of the scope
     let _conn_in = (
