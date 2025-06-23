@@ -1,5 +1,3 @@
-use crate::buffer;
-use crate::envelope;
 use crate::outils;
 use std::ops::{Index, IndexMut};
 
@@ -89,13 +87,13 @@ impl Parameter {
 }
 
 pub struct ParameterCapsule {
-    pub id: ParameterID,
+    pub id: i32,
     pub parameter: Parameter,
 }
 
 impl ParameterCapsule {
     pub fn new(
-        id: ParameterID,
+        id: i32,
         display_name: &str,
         default_value: i32,
         cc: char,
@@ -117,84 +115,25 @@ impl ParameterCapsule {
     }
 }
 
-//replace with variant_count if it someday hit stable release
-pub const NUMBER_OF_PARAMETERS: usize = 12;
 
-#[derive(PartialEq, Debug, Copy, Clone)]
-pub enum ParameterID {
-    OscHarmonicRatio,
-    OscHarmonicGain,
-    EnvelopeAttack,
-    EnvelopeRelease,
-    FilterCutoff,
-    DelayTime,
-    DelayFeedback,
-    DelayDryWet,
-    ReverbTime,
-    ReverbDryWet,
-    Volume,
-    FftTrehsold,
-}
+
 pub struct Parameters {
-    pub parameters: [ParameterCapsule; NUMBER_OF_PARAMETERS],
+    pub parameters: Vec<ParameterCapsule>,
+    pub nb_param: usize,
 }
 
 impl Parameters {
-    pub fn new() -> Self {
-        type ID = ParameterID;
-        type P = ParameterCapsule;
+    // pub fn new() -> Self {
+    //     type ID = ParameterID;
+    //     type P = ParameterCapsule;
 
-        let parameters = Self {
-            parameters: [
-                P::new(ID::OscHarmonicRatio, "osc-hrmrat", 32, 'h', 0.2, 2., 1.4),
-                P::new(ID::OscHarmonicGain, "osc-hrmgn", 32, 'g', 0.01, 3., 1.),
-                //envelope
-                P::new(
-                    ID::EnvelopeAttack,
-                    "env-atk",
-                    3,
-                    'a',
-                    envelope::MINIMUM_ENVELOPE_TIME,
-                    envelope::MAXIMUM_ENVELOPE_TIME,
-                    2.,
-                ),
-                P::new(
-                    ID::EnvelopeRelease,
-                    "env-dcy",
-                    3,
-                    'd',
-                    envelope::MINIMUM_ENVELOPE_TIME,
-                    envelope::MAXIMUM_ENVELOPE_TIME,
-                    2.,
-                ),
-                P::new(ID::FilterCutoff, "cutoff", 36, 'c', 20., 20000., 4.),
-                //Delay
-                P::new(
-                    ID::DelayTime,
-                    "dly-time",
-                    4,
-                    't',
-                    buffer::MINIMUM_DELAY_TIME,
-                    buffer::MAXIMUM_DELAY_TIME,
-                    2.,
-                ),
-                P::new(ID::DelayFeedback, "dly-feed", 4, 'f', 0., 1.0, 1.),
-                P::new(ID::DelayDryWet, "dly-wet", 0, 'w', 0., 1., 1.),
-                P::new(ID::ReverbDryWet, "rvb-wet", 0, 'r', 0., 1., 1.),
-                P::new(ID::FftTrehsold, "fft-thr", 0, '8', 0., 1., 1.),
-                P::new(ID::ReverbTime, "rvb-time", 0, '9', 0., 0.99, 1.),
-                //global
-                P::new(ID::Volume, "volume", 14, 'v', 0., 2., 2.),
-            ],
-        };
+    //     assert!(parameters.no_id_double());
+    //     assert!(parameters.no_cc_double());
+    //     parameters
+    // }
 
-        assert!(parameters.no_id_double());
-        assert!(parameters.no_cc_double());
-        parameters
-    }
-
-    fn no_id_double(&self) -> bool {
-        let mut vector: Vec<ParameterID> = Vec::new();
+    pub fn no_id_double(&self) -> bool {
+        let mut vector: Vec<i32> = Vec::new();
         for parameter_capsule in &self.parameters {
             for id in &vector {
                 if parameter_capsule.id == *id {
@@ -206,7 +145,7 @@ impl Parameters {
         return true;
     }
 
-    fn no_cc_double(&self) -> bool {
+    pub fn no_cc_double(&self) -> bool {
         let mut vector: Vec<char> = Vec::new();
         for parameter_capsule in &self.parameters {
             for cc in &vector {
@@ -220,7 +159,7 @@ impl Parameters {
     }
 
     //search the parameter array for the correct id and set the new parameter
-    pub fn set(&mut self, id: ParameterID, mut value: i32) {
+    pub fn set(&mut self, id: i32, mut value: i32) {
         value = value.clamp(0, 35);
         for capsule in self.parameters.iter_mut() {
             if id == capsule.id {
@@ -231,9 +170,9 @@ impl Parameters {
         panic!("No parameter named {:?}", id)
     }
 }
-impl Index<ParameterID> for Parameters {
+impl Index<i32> for Parameters {
     type Output = Parameter;
-    fn index(&self, parameter_id: ParameterID) -> &Self::Output {
+    fn index(&self, parameter_id: i32) -> &Self::Output {
         for parameter_capsule in self.parameters.iter() {
             if parameter_id == parameter_capsule.id {
                 return &parameter_capsule.parameter;
@@ -243,8 +182,8 @@ impl Index<ParameterID> for Parameters {
     }
 }
 
-impl IndexMut<ParameterID> for Parameters {
-    fn index_mut(&mut self, parameter_id: ParameterID) -> &mut Self::Output {
+impl IndexMut<i32> for Parameters {
+    fn index_mut(&mut self, parameter_id: i32) -> &mut Self::Output {
         for parameter_capsule in self.parameters.iter_mut() {
             if parameter_id == parameter_capsule.id {
                 return &mut parameter_capsule.parameter;

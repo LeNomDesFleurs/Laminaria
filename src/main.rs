@@ -4,8 +4,6 @@ mod midi;
 mod parameters;
 mod synth;
 mod ui;
-use parameters::ParameterID;
-use parameters::Parameters;
 pub use synth::Synth;
 mod oscillator;
 pub use oscillator::HarmonicOscillator;
@@ -22,8 +20,11 @@ pub use textparsing::TextCharacteristic;
 mod envelope;
 mod midibuffer;
 mod reverb;
+extern crate num;
+extern crate num_derive;
 
-type ParameterUpdate = (ParameterID, f32);
+
+type ParameterUpdate = (i32, f32);
 
 //std and extern stuff
 use std::error::Error;
@@ -72,7 +73,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let (ui_sender, ui_receiver): (Sender<ui::UiEvent>, Receiver<ui::UiEvent>) = channel();
     let (midi_sender, midi_receiver): (Sender<MidiMessage>, Receiver<MidiMessage>) = channel();
 
-    let parameters = Parameters::new();
+    let parameters = Synth::get_parameters();
+    let number_of_params = parameters.nb_param;
     let parameters_mutex = Arc::new(Mutex::new(parameters));
     let parameters_clone_ui = parameters_mutex.clone();
     let parameters_clone_interaction = parameters_mutex.clone();
@@ -85,13 +87,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     stream.play()?;
 
     // set default value
-    for caps in Parameters::new().parameters {
+    for caps in Synth::get_parameters().parameters {
         parameter_sender.send((caps.id, caps.parameter.get_raw_value()))?
     }
 
     let _ui_thread = std::thread::Builder::new()
         .name("UI".to_string())
-        .spawn(move || ui::gui(parameters_clone_ui, ui_receiver));
+        .spawn(move || ui::gui(parameters_clone_ui, ui_receiver, number_of_params));
 
     ui::keyboard_input(
         parameters_clone_interaction,
@@ -99,6 +101,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         ui_sender_interaction_thread,
         midi_sender,
         midi_channel,
+        number_of_params,
     );
 
     Ok(())

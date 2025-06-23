@@ -1,6 +1,6 @@
 use crate::outils::get_orca_character;
-use crate::parameters::{Parameter, ParameterID, Parameters, NUMBER_OF_PARAMETERS};
-use crate::{parameters, ParameterUpdate};
+use crate::parameters::{Parameter, Parameters};
+use crate::{ParameterUpdate};
 use crossterm::execute;
 use crossterm::{
     cursor, event, event::Event, event::KeyCode, event::KeyEvent, event::KeyModifiers,
@@ -34,6 +34,7 @@ pub fn keyboard_input(
     gui_sender: Sender<UiEvent>,
     midi_sender: Sender<MidiMessage>,
     midi_channel: u8,
+    number_of_params: usize
 ) -> Result<()> {
     enable_raw_mode().unwrap();
     execute!(std::io::stdout(), cursor::Hide)?;
@@ -83,7 +84,7 @@ pub fn keyboard_input(
                     break;
                 }
                 KeyCode::Down => {
-                    if selected < NUMBER_OF_PARAMETERS as i32 - 1 {
+                    if selected < number_of_params as i32 - 1 { 
                         selected += 1;
                     }
                     ui_event = UiEvent::UpdateSelection(selected);
@@ -164,7 +165,7 @@ pub fn keyboard_input(
     Ok(())
 }
 
-pub fn gui(parameters: Arc<Mutex<Parameters>>, receive_event: Receiver<UiEvent>) -> Result<()> {
+pub fn gui(parameters: Arc<Mutex<Parameters>>, receive_event: Receiver<UiEvent>, number_of_params: usize) -> Result<()> {
     let mut local_parameters: Vec<Parameter> = Vec::new();
     let mut midi_channel: u8 = 0;
     let mut midi_port_name: String = "midi port".to_string();
@@ -211,6 +212,7 @@ pub fn gui(parameters: Arc<Mutex<Parameters>>, receive_event: Receiver<UiEvent>)
             selected,
             top_selection_index,
             terminal_size.1 as i32,
+            number_of_params,
         );
     }
 }
@@ -221,6 +223,7 @@ fn update_display(
     selected: i32,
     top_selection_index: i32,
     size: i32,
+    number_of_params: usize,
 ) {
     println!("{}", terminal::Clear(terminal::ClearType::All));
     println!("{}", cursor::MoveTo(0, 0));
@@ -235,7 +238,7 @@ fn update_display(
     } else
     //else, implement scroll
     {
-        let bottom = (top_selection_index + size - 4).clamp(0, NUMBER_OF_PARAMETERS as i32);
+        let bottom = (top_selection_index + size - 4).clamp(0, number_of_params as i32);
         iterator = top_selection_index as usize..bottom as usize
     }
     for i in iterator {

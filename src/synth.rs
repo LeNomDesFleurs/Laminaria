@@ -1,21 +1,41 @@
-use std::collections::HashMap;
-
 use crate::buffer;
 use crate::buffer::DelayLine;
 use crate::envelope;
 use crate::envelope::Envelope;
 use crate::midi::MidiMessage;
 use crate::midibuffer::PolyMidiBuffer;
-use crate::parameters::ParameterID;
+use crate::parameters::ParameterCapsule;
 use crate::reverb::Reverb;
 use crate::Biquad;
 use crate::HarmonicOscillator;
-type ID = ParameterID;
+// type ID = ParameterID;
 use crate::ParameterUpdate;
-use rustfft::{num_complex::Complex, FftPlanner};
+use crate::parameters::Parameters;
+use crate::num;
+use crate::num_derive;
+use num_derive::FromPrimitive;
+
 
 const NUMBER_OF_VOICES: usize = 4;
 const VOICE_ITERATOR: std::ops::Range<usize> = 0..NUMBER_OF_VOICES;
+
+
+const NB_SYNTH_PARAM: usize = 11;
+
+#[derive(PartialEq, Debug, Copy, Clone, FromPrimitive)] //from primitive allow me to cast i32 as enum 
+pub enum SynthParamID {
+    OscHarmonicRatio,
+    OscHarmonicGain,
+    EnvelopeAttack,
+    EnvelopeRelease,
+    FilterCutoff,
+    DelayTime,
+    DelayFeedback,
+    DelayDryWet,
+    ReverbTime,
+    ReverbDryWet,
+    Volume,
+}
 
 pub struct Synth {
     envelopes: [Envelope; NUMBER_OF_VOICES],
@@ -26,13 +46,14 @@ pub struct Synth {
     low_pass: Biquad,
     //parameters
     volume: f32,
-    fft_threshold: f32,
-    fft_buffer_in: Vec<f32>,
-    fft_buffer_out: Vec<f32>,
+
 }
 
 impl Synth {
     pub fn default(sample_rate: f32) -> Self {
+
+
+
         Synth {
             reverb: Reverb::new(sample_rate),
             envelopes: [Envelope::new(sample_rate as i32); NUMBER_OF_VOICES],
@@ -41,12 +62,41 @@ impl Synth {
             low_pass: Biquad::new(sample_rate, crate::filter::FilterType::LPF),
             delay: DelayLine::new(sample_rate, buffer::MAXIMUM_DELAY_TIME),
             volume: 0.5,
-            fft_threshold: 1.,
-            fft_buffer_in: Vec::new(),
-            fft_buffer_out: Vec::new(),
             // parameters: Parameters {},
         }
+
     }
+
+    pub fn get_parameters() -> Parameters{
+
+        type ID = SynthParamID;
+        type P = ParameterCapsule;
+
+
+        let params = Parameters{
+            parameters: vec![
+                P::new(ID::OscHarmonicRatio as i32, "osc-hrmrat", 32, 'h', 0.2, 2., 1.4),
+                P::new(ID::OscHarmonicGain as i32, "osc-hrmgn", 32, 'g', 0.01, 3., 1.),
+                //envelope
+                P::new(ID::EnvelopeAttack as i32, "env-atk",3,'a',envelope::MINIMUM_ENVELOPE_TIME,envelope::MAXIMUM_ENVELOPE_TIME,2.,),
+                P::new(ID::EnvelopeRelease as i32,"env-dcy",3,'d',envelope::MINIMUM_ENVELOPE_TIME,envelope::MAXIMUM_ENVELOPE_TIME,2.,),
+                P::new(ID::FilterCutoff as i32, "cutoff", 36, 'c', 20., 20000., 4.),
+                //Delay
+                P::new(ID::DelayTime as i32,"dly-time",4,'t',buffer::MINIMUM_DELAY_TIME,buffer::MAXIMUM_DELAY_TIME,2.,),
+                P::new(ID::DelayFeedback as i32, "dly-feed", 4, 'f', 0., 1.0, 1.),
+                P::new(ID::DelayDryWet as i32, "dly-wet", 0, 'w', 0., 1., 1.),
+                P::new(ID::ReverbDryWet as i32, "rvb-wet", 0, 'r', 0., 1., 1.),
+                P::new(ID::ReverbTime as i32, "rvb-time", 0, '9', 0., 0.99, 1.),
+                //global
+                P::new(ID::Volume as i32, "volume", 14, 'v', 0., 2., 2.),
+            ],
+            nb_param: NB_SYNTH_PARAM,
+        };
+                assert!(params.no_id_double());
+                assert!(params.no_cc_double());
+                params
+    }
+
     pub fn set_note(&mut self, message: MidiMessage) {
         match message {
             MidiMessage::NoteOff(midi_note) => self.midibuffer.remove_note(midi_note),
@@ -115,71 +165,20 @@ impl Synth {
         sample = self.reverb.process(sample);
 
 
-        // let mut planner = FftPlanner::new();
-        //     let fft = planner.plan_fft_forward(512);
-        //     let ifft = planner.plan_fft_inverse(512);
-
-
-        // self.fft_buffer_in.push(sample);
-
-        // if self.fft_buffer_in.len() == 512{
-        //     let mut buffer : Vec<Complex<f32>> = vec![];
-
-        //     for sample in &self.fft_buffer_in{
-        //         buffer.push(Complex{re: *sample, im:0.0});
-        //     }
-
-        //     self.fft_buffer_in.clear();
-
-        //     fft.process(&mut buffer);
-
-        //     for complex in buffer.iter_mut(){
-        //             let c = (complex.re.powi(2) + complex.im.powi(2)).sqrt();
-        //             if c < self.fft_threshold {
-        //                 complex.re = 0.;
-        //                 complex.im = 0.;
-        //             }
-        //             // let d =  (*complex.re / *complex.im).atan();
-        //             // *a = c;
-        //             // *b = d;
-        //     }
-
-        //     ifft.process(&mut buffer);
-
-        //     for complex in buffer {
-        //         self.fft_buffer_out.push(complex.re);
-        //     }
-        // }
-
-        // sample = self.fft_buffer_out.pop().unwrap_or(0.0);
-
-
         //vca
         sample *= self.volume;
 
         return sample;
     }
 
-    // pub fn set_parameters(&mut self, parameters: Parameters) {
-    //     self.filter.set_frequency(parameters.filter_freq);
-    //     self.oscillator.set_parameters(
-    //         parameters.osc_freq,
-    //         parameters.osc_shape,
-    //         parameters.osc_mod_freq,
-    //         parameters.osc_mod_period,
-    //     );
-    //     self.buffer.set_delay_time(self.routing_delay_time);
-    //     self.chorus
-    //         .set_parameters(parameters.chorus_amp, parameters.chorus_rate);
-    //     self.lfo
-    //         .set_freq_and_shape(parameters.lfo_freq, parameters.lfo_shape);
-    // }
+
 
     pub fn set_parameter(&mut self, (id, new_value): ParameterUpdate) {
         //need to find the parameter description to know the min max
 
-        type ID = ParameterID;
-        match id {
+        type ID = SynthParamID;
+        let typed_id : SynthParamID = num::FromPrimitive::from_i32(id).unwrap();
+        match typed_id {
             ID::Volume => self.volume = new_value,
             ID::ReverbDryWet => self.reverb.set_reverb_time(new_value),
             ID::ReverbTime => self.reverb.dry_wet = new_value,
@@ -209,7 +208,6 @@ impl Synth {
                 self.delay.set_freeze(new_value > 0.99);
                 self.delay.set_feedback(new_value)
             }
-            ID::FftTrehsold => self.fft_threshold = new_value,
         }
     }
 }

@@ -13,3 +13,6 @@ midir = "0.10.0"
 crossterm = "0.27.0"
 rustfft = "6.2.0"
 clap = { version = "4.5.9", features = ["derive"] }
+num = "0.4"
+num-derive = "0.4"
+num-traits = "0.2"

@@ -57,7 +57,7 @@ fn raw_midi_to_message(status: u8, note: u8, velocity: u8) -> (u8, MidiMessage) 
     }
 }
 
-use crate::parameters::{ParameterID, Parameters};
+use crate::parameters::{Parameters};
 use crate::ui::UiEvent;
 
 pub fn connect_midi(
@@ -67,7 +67,7 @@ pub fn connect_midi(
     gui_sender: Sender<UiEvent>,
     channel_index: Arc<Mutex<u8>>,
 ) -> Result<(MidiInputConnection<()>, String), Box<dyn Error>> {
-    let mut midicc_hash: HashMap<u8, ParameterID> = HashMap::new();
+    let mut midicc_hash: HashMap<u8, i32> = HashMap::new();
     for capsule in parameter_clone.lock().unwrap().parameters.iter() {
         let id = capsule.id;
         let cc = capsule.parameter.midicc;
