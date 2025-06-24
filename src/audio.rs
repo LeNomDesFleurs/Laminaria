@@ -1,4 +1,4 @@
-use crate::{ midi::MidiMessage, ParameterUpdate, Synth};
+use crate::{ midi::MidiMessage, synth::{HasEngine, HasMidiInput, HasParameters}, HarmonicModel, ParameterUpdate};
 use cpal::{
     traits::{DeviceTrait, HostTrait},
     SizedSample,
@@ -77,7 +77,7 @@ where
 {
     let num_channels = config.channels as usize;
 
-    let mut synth = Synth::default(config.sample_rate.0 as f32);
+    let mut synth = HarmonicModel::new(config.sample_rate.0 as f32);
     let err_fn = |err| eprintln!("Error building output sound stream: {}", err);
 
     let time_at_start = std::time::Instant::now();
@@ -104,7 +104,7 @@ where
     Ok(stream)
 }
 
-fn process_frame<SampleType>(output: &mut [SampleType], synth: &mut Synth, num_channels: usize)
+fn process_frame<SampleType>(output: &mut [SampleType], synth: &mut HarmonicModel, num_channels: usize)
 where
     SampleType: Sample + FromSample<f32>,
 {
