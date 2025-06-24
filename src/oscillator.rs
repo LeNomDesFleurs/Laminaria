@@ -98,6 +98,10 @@ impl SineWave{
         }
     }
 
+    pub fn set_note(&mut self, midi_note: u8) {
+        self.frequency_hz = midi_to_frequence(midi_note);
+    }
+
     fn increment_phasor(&mut self) {
         self.phasor = (self.phasor + (self.frequency_hz / self.sample_rate)) % 1.;
     }

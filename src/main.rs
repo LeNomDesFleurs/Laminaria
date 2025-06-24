@@ -65,6 +65,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         midi_channel = args.channel;
     }
 
+
+    
+
     // initialize channels
     let (parameter_sender, parameter_receiver): (
         Sender<ParameterUpdate>,

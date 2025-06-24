@@ -24,7 +24,7 @@ const VOICE_ITERATOR: std::ops::Range<usize> = 0..NUMBER_OF_VOICES;
 const NB_SYNTH_PARAM: usize = 11;
 
 #[derive(PartialEq, Debug, Copy, Clone, FromPrimitive)] //from primitive allow me to cast i32 as enum
-pub enum SynthParamID {
+pub enum HarmonicModelParamID {
     OscHarmonicRatio,
     OscHarmonicGain,
     EnvelopeAttack,
@@ -108,7 +108,7 @@ impl HasEngine for HarmonicModel {
 
 impl HasParameters for HarmonicModel {
     fn get_parameters() -> Parameters {
-        type ID = SynthParamID;
+        type ID = HarmonicModelParamID;
         type P = ParameterCapsule;
 
         let params = Parameters {
@@ -178,8 +178,8 @@ impl HasParameters for HarmonicModel {
     fn set_parameter(&mut self, (id, new_value): ParameterUpdate) {
         //need to find the parameter description to know the min max
 
-        type ID = SynthParamID;
-        let typed_id: SynthParamID = num::FromPrimitive::from_i32(id).unwrap();
+        type ID = HarmonicModelParamID;
+        let typed_id: HarmonicModelParamID = num::FromPrimitive::from_i32(id).unwrap();
         match typed_id {
             ID::Volume => self.volume = new_value,
             ID::ReverbDryWet => self.reverb.set_reverb_time(new_value),
