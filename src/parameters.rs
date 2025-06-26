@@ -86,6 +86,7 @@ impl Parameter {
     }
 }
 
+#[derive(Clone)]
 pub struct ParameterCapsule {
     pub id: i32,
     pub parameter: Parameter,
@@ -115,10 +116,8 @@ impl ParameterCapsule {
     }
 }
 
-
-
 pub struct Parameters {
-    pub parameters: Vec<ParameterCapsule>,
+    pub capsules: Vec<ParameterCapsule>,
     pub nb_param: usize,
 }
 
@@ -134,7 +133,7 @@ impl Parameters {
 
     pub fn no_id_double(&self) -> bool {
         let mut vector: Vec<i32> = Vec::new();
-        for parameter_capsule in &self.parameters {
+        for parameter_capsule in &self.capsules {
             for id in &vector {
                 if parameter_capsule.id == *id {
                     return false;
@@ -147,7 +146,7 @@ impl Parameters {
 
     pub fn no_cc_double(&self) -> bool {
         let mut vector: Vec<char> = Vec::new();
-        for parameter_capsule in &self.parameters {
+        for parameter_capsule in &self.capsules {
             for cc in &vector {
                 if parameter_capsule.parameter.midicc == *cc {
                     return false;
@@ -161,7 +160,7 @@ impl Parameters {
     //search the parameter array for the correct id and set the new parameter
     pub fn set(&mut self, id: i32, mut value: i32) {
         value = value.clamp(0, 35);
-        for capsule in self.parameters.iter_mut() {
+        for capsule in self.capsules.iter_mut() {
             if id == capsule.id {
                 capsule.parameter.value = value;
                 return;
@@ -173,7 +172,7 @@ impl Parameters {
 impl Index<i32> for Parameters {
     type Output = Parameter;
     fn index(&self, parameter_id: i32) -> &Self::Output {
-        for parameter_capsule in self.parameters.iter() {
+        for parameter_capsule in self.capsules.iter() {
             if parameter_id == parameter_capsule.id {
                 return &parameter_capsule.parameter;
             }
@@ -184,7 +183,7 @@ impl Index<i32> for Parameters {
 
 impl IndexMut<i32> for Parameters {
     fn index_mut(&mut self, parameter_id: i32) -> &mut Self::Output {
-        for parameter_capsule in self.parameters.iter_mut() {
+        for parameter_capsule in self.capsules.iter_mut() {
             if parameter_id == parameter_capsule.id {
                 return &mut parameter_capsule.parameter;
             }

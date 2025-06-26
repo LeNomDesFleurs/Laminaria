@@ -69,7 +69,7 @@ pub fn connect_midi(
     channel_index: Arc<Mutex<u8>>,
 ) -> Result<(MidiInputConnection<()>, String), Box<dyn Error>> {
     let mut midicc_hash: HashMap<u8, i32> = HashMap::new();
-    for capsule in parameter_clone.lock().unwrap().parameters.iter() {
+    for capsule in parameter_clone.lock().unwrap().capsules.iter() {
         let id = capsule.id;
         let cc = capsule.parameter.midicc;
         midicc_hash.insert(outils::get_orca_integer(cc).unwrap_or(0), id);

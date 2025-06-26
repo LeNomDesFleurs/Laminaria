@@ -28,14 +28,13 @@ pub struct Biquad {
 
 impl Biquad {
     pub fn new(
-        sample_rate: f32,
         filter_type: FilterType,
     ) -> Self {
-        let mut biquad = Biquad {
+        Biquad {
             filter_type,
             frequency_cutoff: 440.,
             resonance: 0.7,
-            sample_rate,
+            sample_rate: 0.0,
             peak_gain: 0.,
             b: [0., 0., 0.],
             a: [0., 0., 0.],
@@ -46,9 +45,12 @@ impl Biquad {
             sinomega: 0.,
             alpha: 0.,
             modulation: 0.,
-        };
-        biquad.compute_coef();
-        biquad
+        }
+    }
+
+    pub fn init(&mut self, sample_rate: f32){
+        self.sample_rate = sample_rate;
+        self.compute_coef();
     }
 
     fn compute_lfp_coef(&mut self) {

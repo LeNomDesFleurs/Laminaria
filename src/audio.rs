@@ -1,54 +1,35 @@
-use crate::{ midi::MidiMessage, synth::{HasEngine, HasMidiInput, HasParameters}, HarmonicModel, ParameterUpdate};
+use crate::{ midi::MidiMessage, synth::{self, HasConstructor, HasEngine, HasMidiInput, HasParameters, Synth}, HarmonicModel, ParameterUpdate};
 use cpal::{
     traits::{DeviceTrait, HostTrait},
     SizedSample,
 };
 use cpal::{FromSample, Sample};
-use std::sync::mpsc::Receiver;
+use std::{sync::mpsc::Receiver};
 
 pub fn stream_setup_for(
     parameter_receiver: Receiver<ParameterUpdate>,
     midi_receiver: Receiver<MidiMessage>,
+    synth_model: Box<dyn Synth>,
 ) -> Result<cpal::Stream, anyhow::Error>
 where
 {
     let (_host, device, config) = host_device_setup()?;
 
-    match config.sample_format() {
-        cpal::SampleFormat::I8 => {
-            make_stream::<i8>(&device, &config.into(), parameter_receiver, midi_receiver)
-        }
-        cpal::SampleFormat::I16 => {
-            make_stream::<i16>(&device, &config.into(), parameter_receiver, midi_receiver)
-        }
-        cpal::SampleFormat::I32 => {
-            make_stream::<i32>(&device, &config.into(), parameter_receiver, midi_receiver)
-        }
-        cpal::SampleFormat::I64 => {
-            make_stream::<i64>(&device, &config.into(), parameter_receiver, midi_receiver)
-        }
-        cpal::SampleFormat::U8 => {
-            make_stream::<u8>(&device, &config.into(), parameter_receiver, midi_receiver)
-        }
-        cpal::SampleFormat::U16 => {
-            make_stream::<u16>(&device, &config.into(), parameter_receiver, midi_receiver)
-        }
-        cpal::SampleFormat::U32 => {
-            make_stream::<u32>(&device, &config.into(), parameter_receiver, midi_receiver)
-        }
-        cpal::SampleFormat::U64 => {
-            make_stream::<u64>(&device, &config.into(), parameter_receiver, midi_receiver)
-        }
-        cpal::SampleFormat::F32 => {
-            make_stream::<f32>(&device, &config.into(), parameter_receiver, midi_receiver)
-        }
-        cpal::SampleFormat::F64 => {
-            make_stream::<f64>(&device, &config.into(), parameter_receiver, midi_receiver)
-        }
-        sample_format => Err(anyhow::Error::msg(format!(
-            "Unsupported sample format '{sample_format}'"
-        ))),
-    }
+    let result = match config.sample_format() {
+    f @ cpal::SampleFormat::I8  => make_stream::<i8>,
+    f @ cpal::SampleFormat::I16 => make_stream::<i16>,
+    f @ cpal::SampleFormat::I32 => make_stream::<i32>,
+    f @ cpal::SampleFormat::I64 => make_stream::<i64>,
+    f @ cpal::SampleFormat::U8  => make_stream::<u8>,
+    f @ cpal::SampleFormat::U16 => make_stream::<u16>,
+    f @ cpal::SampleFormat::U32 => make_stream::<u32>,
+    f @ cpal::SampleFormat::U64 => make_stream::<u64>,
+    f @ cpal::SampleFormat::F32 => make_stream::<f32>,
+    f @ cpal::SampleFormat::F64 => make_stream::<f64>,
+    other => return Err(anyhow::anyhow!("Unsupported sample format '{other:?}'")),
+};
+
+result(&device, &config.into(), parameter_receiver, midi_receiver, synth_model)
 }
 
 pub fn host_device_setup(
@@ -71,13 +52,14 @@ pub fn make_stream<T>(
     config: &cpal::StreamConfig,
     interface_receiver: Receiver<ParameterUpdate>,
     midi_receiver: Receiver<MidiMessage>,
+    mut synth_model: Box<dyn Synth>,
 ) -> Result<cpal::Stream, anyhow::Error>
 where
     T: SizedSample + FromSample<f32>,
 {
     let num_channels = config.channels as usize;
 
-    let mut synth = HarmonicModel::new(config.sample_rate.0 as f32);
+    let mut synth = synth_model.init(config.sample_rate.0 as f32);
     let err_fn = |err| eprintln!("Error building output sound stream: {}", err);
 
     let time_at_start = std::time::Instant::now();
@@ -88,14 +70,14 @@ where
         //check for new parameter values
         move |output: &mut [T], _: &cpal::OutputCallbackInfo| {
             if let Ok((id, value)) = interface_receiver.try_recv() {
-                synth.set_parameter((id, value))
+                synth_model.set_parameter((id, value))
             }
             //check for new midi value
             if let Ok(message) = midi_receiver.try_recv() {
-                synth.set_note(message);
+                synth_model.set_note(message);
             }
             //process buffer
-            process_frame(output, &mut synth, num_channels)
+            process_frame(output, &mut synth_model, num_channels)
         },
         err_fn,
         None,
@@ -104,12 +86,12 @@ where
     Ok(stream)
 }
 
-fn process_frame<SampleType>(output: &mut [SampleType], synth: &mut HarmonicModel, num_channels: usize)
+fn process_frame<SampleType>(output: &mut [SampleType], synth_model: &mut Box<dyn Synth>, num_channels: usize)
 where
     SampleType: Sample + FromSample<f32>,
 {
     for frame in output.chunks_mut(num_channels) {
-        let value: SampleType = SampleType::from_sample(synth.process());
+        let value: SampleType = SampleType::from_sample(synth_model.process());
 
         // copy the same value to all channels
         for sample in frame.iter_mut() {

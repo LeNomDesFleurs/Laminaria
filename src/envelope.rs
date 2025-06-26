@@ -16,22 +16,27 @@ pub struct Envelope {
     value: f32,
     pub status: Segment,
     //in sample
-    sample_rate: i32,
+    sample_rate: f32,
     increment: f32,
     decrement: f32,
 }
 
 
 impl Envelope {
-    pub fn new(sample_rate: i32) -> Self {
+    pub fn new() -> Self {
         Self {
             value: 0.,
             status: Off,
             increment: 0.001,
             decrement: 0.001,
-            sample_rate: sample_rate,
+            sample_rate: 0.0,
         }
     }
+
+    pub fn init(&mut self, sample_rate: f32){
+        self.sample_rate = sample_rate;
+    }
+
     ///time in ms
     pub fn set_attack(&mut self, time: f32) {
         self.set_segment_length(time, Attack)
@@ -47,7 +52,7 @@ impl Envelope {
             "can only set time of attack or release"
         );
         let clamped_time = time.clamp(MINIMUM_ENVELOPE_TIME, MAXIMUM_ENVELOPE_TIME);
-        let samples = convert_ms_to_sample(clamped_time, self.sample_rate as f32);
+        let samples = convert_ms_to_sample(clamped_time, self.sample_rate);
         let step = 1. / samples;
         match segment {
             Segment::Attack => self.increment = step,

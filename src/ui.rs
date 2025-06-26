@@ -36,9 +36,7 @@ pub fn keyboard_input(
     midi_channel: u8,
     number_of_params: usize
 ) -> Result<()> {
-    enable_raw_mode().unwrap();
-    execute!(std::io::stdout(), cursor::Hide)?;
-
+   
     let mut selected: i32 = 0;
     let midi_channel = Arc::new(Mutex::new(midi_channel));
     // need to get the midi as a variable to keep it in scope
@@ -146,7 +144,7 @@ pub fn keyboard_input(
                 //the first unwrap is in the case where a mutex fucks up, the second is for get_mut and only return None if there is no parameter in the Hash map, which cannot happen
                 let mut parameters_binding = parameters.lock().unwrap();
                 let capsule_binding = parameters_binding
-                    .parameters
+                    .capsules
                     .get_mut(selected as usize)
                     .unwrap();
                 let parameter = &mut capsule_binding.parameter;
@@ -191,7 +189,7 @@ pub fn gui(parameters: Arc<Mutex<Parameters>>, receive_event: Receiver<UiEvent>,
         };
         //need to be updated a each iteration to get new values
         local_parameters.clear();
-        for parameter in parameters.lock().unwrap().parameters.iter() {
+        for parameter in parameters.lock().unwrap().capsules.iter() {
             local_parameters.push(parameter.parameter.clone());
         }
         let terminal_size = crossterm::terminal::size().unwrap_or(default);
@@ -297,4 +295,10 @@ pub fn option_menu(options: Vec<String>)-> usize{
             }
 
     return selection;
+}
+
+
+pub fn init_terminal(){
+     enable_raw_mode().unwrap();
+    execute!(std::io::stdout(), cursor::Hide).unwrap();
 }

@@ -1,14 +1,18 @@
 use crate::buffer;
 use crate::buffer::DelayLine;
+use crate::buffer::DelayMode;
 use crate::envelope;
 use crate::envelope::Envelope;
 use crate::midi::MidiMessage;
 use crate::midibuffer::PolyMidiBuffer;
+use crate::outils;
 use crate::parameters::ParameterCapsule;
 use crate::reverb::Reverb;
+use crate::synth::HasConstructor;
 use crate::synth::HasEngine;
 use crate::synth::HasMidiInput;
 use crate::synth::HasParameters;
+use crate::synth::Synth;
 use crate::Biquad;
 use crate::HarmonicOscillator;
 // type ID = ParameterID;
@@ -46,21 +50,31 @@ pub struct HarmonicModel {
     delay: DelayLine,
     low_pass: Biquad,
     //parameters
+    delay_dry_wet: f32,
     volume: f32,
 }
 
-impl HarmonicModel {
-    pub fn new(sample_rate: f32) -> Self {
+
+impl HasConstructor for HarmonicModel{
+     fn new() -> Self {
         HarmonicModel {
-            reverb: Reverb::new(sample_rate),
-            envelopes: [Envelope::new(sample_rate as i32); NUMBER_OF_VOICES],
-            oscillators: [HarmonicOscillator::new(sample_rate, 500.); NUMBER_OF_VOICES],
+            reverb: Reverb::new(),
+            envelopes: [Envelope::new(); NUMBER_OF_VOICES],
+            oscillators: [HarmonicOscillator::new(500.); NUMBER_OF_VOICES],
             midibuffer: PolyMidiBuffer::new(NUMBER_OF_VOICES),
-            low_pass: Biquad::new(sample_rate, crate::filter::FilterType::LPF),
-            delay: DelayLine::new(sample_rate, buffer::MAXIMUM_DELAY_TIME),
+            low_pass: Biquad::new(crate::filter::FilterType::LPF),
+            delay: DelayLine::new(buffer::MAXIMUM_DELAY_TIME, DelayMode::Comb),
+            delay_dry_wet: 0.0,
             volume: 0.5,
-            // parameters: Parameters {},
         }
+    }
+
+    fn init(&mut self, sample_rate: f32){
+            self.reverb.init(sample_rate);
+            self.envelopes.iter_mut().for_each(|x|x.init(sample_rate));
+            self.oscillators.iter_mut().for_each(|x|x.init(sample_rate));
+            self.low_pass.init(sample_rate);
+            self.delay.init(sample_rate);
     }
 }
 
@@ -96,7 +110,10 @@ impl HasEngine for HarmonicModel {
         sample /= 4.;
         sample = self.low_pass.process(sample);
         // EFFECTS
-        sample = self.delay.process(sample);
+        let delay:f32 = self.delay.process(sample);
+
+        sample = outils::equal_power_crossfade(sample, delay, self.delay_dry_wet);
+
         sample = self.reverb.process(sample);
 
         //vca
@@ -107,12 +124,12 @@ impl HasEngine for HarmonicModel {
 }
 
 impl HasParameters for HarmonicModel {
-    fn get_parameters() -> Parameters {
+    fn get_parameters(&self) -> Parameters {
         type ID = HarmonicModelParamID;
         type P = ParameterCapsule;
 
         let params = Parameters {
-            parameters: vec![
+            capsules: vec![
                 P::new(
                     ID::OscHarmonicRatio as i32,
                     "osc-hrmrat",
@@ -204,7 +221,7 @@ impl HasParameters for HarmonicModel {
                 .for_each(|env| env.set_release(new_value)),
             ID::FilterCutoff => self.low_pass.set_frequency(new_value),
             //delay
-            ID::DelayDryWet => self.delay.set_dry_wet(new_value),
+            ID::DelayDryWet => self.delay_dry_wet = new_value,
             ID::DelayTime => self.delay.set_delay_time(new_value),
             ID::DelayFeedback => {
                 self.delay.set_freeze(new_value > 0.99);
@@ -213,5 +230,7 @@ impl HasParameters for HarmonicModel {
         }
     }
 }
+
+impl Synth for HarmonicModel{}
 
 // trait Synth: HasParameters + HasEngine + HasMidiInput;

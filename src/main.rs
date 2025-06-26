@@ -1,11 +1,14 @@
 //PERSO
 mod audio;
+mod harmonic_model;
 mod midi;
 mod parameters;
 mod synth;
 mod ui;
-mod harmonic_model;
 pub use harmonic_model::HarmonicModel;
+mod sine_model;
+pub use crate::sine_model::SineModel;
+use crate::ui::init_terminal;
 mod oscillator;
 pub use oscillator::HarmonicOscillator;
 pub use oscillator::Lfo;
@@ -24,7 +27,6 @@ mod reverb;
 extern crate num;
 extern crate num_derive;
 
-
 type ParameterUpdate = (i32, f32);
 
 //std and extern stuff
@@ -35,7 +37,9 @@ use crate::clap::Parser;
 extern crate cpal;
 use crate::cpal::traits::StreamTrait;
 use crate::midi::MidiMessage;
-use crate::synth::HasParameters;
+use crate::synth::HasConstructor;
+use crate::synth::Synth;
+use crate::ui::option_menu;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
@@ -65,8 +69,17 @@ fn main() -> Result<(), Box<dyn Error>> {
         midi_channel = args.channel;
     }
 
+    init_terminal();
 
-    
+    let options = vec![
+        "Harmonic".to_string(),
+        "Sine".to_string(),
+    ];
+    let synth_model: Box<dyn Synth> = match option_menu(options) {
+        0 => {Box::new(HarmonicModel::new())},
+        1=>{Box::new(SineModel::new())}
+        _ => {Box::new(SineModel::new())},
+    };
 
     // initialize channels
     let (parameter_sender, parameter_receiver): (
@@ -77,8 +90,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let (midi_sender, midi_receiver): (Sender<MidiMessage>, Receiver<MidiMessage>) = channel();
 
     //initialize parameter system
-    let parameters = HarmonicModel::get_parameters();
+    let parameters = synth_model.get_parameters();
     let number_of_params = parameters.nb_param;
+    let defaults = parameters.capsules.clone();
     let parameters_mutex = Arc::new(Mutex::new(parameters));
     let parameters_clone_ui = parameters_mutex.clone();
     let parameters_clone_interaction = parameters_mutex.clone();
@@ -87,11 +101,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let parameter_sender_interaction_thread = parameter_sender.clone();
 
     // INIT AUDIO THREAD
-    let stream = audio::stream_setup_for(parameter_receiver, midi_receiver)?;
+    let stream = audio::stream_setup_for(parameter_receiver, midi_receiver, synth_model)?;
     stream.play()?;
 
     // set default values
-    for caps in HarmonicModel::get_parameters().parameters {
+    for caps in defaults {
         parameter_sender.send((caps.id, caps.parameter.get_raw_value()))?
     }
 
@@ -99,7 +113,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let _ui_thread = std::thread::Builder::new()
         .name("UI".to_string())
         .spawn(move || ui::gui(parameters_clone_ui, ui_receiver, number_of_params));
-    
+
     // INIT INTERACTION THREAD
     ui::keyboard_input(
         parameters_clone_interaction,

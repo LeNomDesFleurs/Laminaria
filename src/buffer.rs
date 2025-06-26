@@ -24,24 +24,24 @@ pub struct RingBuffer {
     size_on_freeze: f32,
     frac: f32,
     output_sample: f32,
+    max_time: f32, //size in seconds
     // self.buffer_size en base 0
 }
 
 impl RingBuffer {
     ///Buffer size in seconds
-    pub fn new(sample_rate: f32, max_time: f32) -> Self {
-        let buffer_size: usize = (sample_rate * max_time) as usize;
+    pub fn new(max_time: f32) -> Self {
 
         RingBuffer {
             interpolation_mode: InterpolationMode::Linear,
             freezed: false,
             reverse: false,
-            sample_rate,
-            buffer: vec![0.; buffer_size],
-            buffer_size: (buffer_size - 1) as i32,
-            write: (buffer_size / 2) as f32,
-            actual_size: (buffer_size / 2) as f32,
-            size_goal: (buffer_size / 2) as i32,
+            sample_rate: 0.0,
+            buffer: vec![0.; 1],
+            buffer_size: 0,
+            write: 0.0,
+            actual_size: 0.0,
+            size_goal: 0,
             read: 0.,
             i_read_next: 1,
             i_read: 0,
@@ -49,7 +49,19 @@ impl RingBuffer {
             size_on_freeze: 0.,
             frac: 0.,
             output_sample: 0.,
+            max_time,
         }
+        
+    }
+
+    pub fn init(&mut self, sample_rate: f32){
+        let buffer_size: usize = (sample_rate * self.max_time) as usize;
+        self.sample_rate= sample_rate;
+        self.buffer = vec![0.; buffer_size];
+        self.buffer_size= (buffer_size - 1) as i32;
+        self.write= (buffer_size / 2) as f32;
+        self.actual_size= (buffer_size / 2) as f32;
+        self.size_goal= (buffer_size / 2) as i32;
     }
 
     /// @brief increment pointer and set its int, incremented int and frac value
@@ -234,9 +246,7 @@ impl RingBuffer {
 pub static MAXIMUM_DELAY_TIME: f32 = 10.;
 pub static MINIMUM_DELAY_TIME: f32 = 0.01;
 
-enum DelayMode {
-    //delay line => dry wet
-    DelayLine,
+pub enum DelayMode {
     //flat frequency feedback
     Allpass,
     //basic feedback
@@ -246,7 +256,6 @@ enum DelayMode {
 pub struct DelayLine {
     buffer: RingBuffer,
     feedback: f32,
-    dry_wet: f32,
     delay_time: f32,
     delay_mode: DelayMode,
 }
@@ -256,27 +265,17 @@ impl DelayLine {
         self.feedback = rt60_to_gain(rt60, self.delay_time)
     }
     //max_time in seconds
-    pub fn new(sample_rate: f32, max_time: f32) -> Self {
+    pub fn new(max_time: f32, mode: DelayMode) -> Self {
         DelayLine {
-            buffer: RingBuffer::new(sample_rate, max_time),
+            buffer: RingBuffer::new(max_time),
             feedback: 0.5,
-            dry_wet: 0.5,
-            delay_mode: DelayMode::DelayLine,
+            delay_mode: mode,
             delay_time: max_time,
         }
     }
-    //max_time in seconds
-    pub fn new_comb(sample_rate: f32, max_time: f32)->Self{
-        let mut delay = DelayLine::new(sample_rate, max_time);
-        delay.delay_mode=DelayMode::Comb;
-        delay
-    }
 
-    //max_time in seconds
-    pub fn new_allpass(sample_rate: f32, max_time: f32)->Self{
-        let mut delay = DelayLine::new(sample_rate, max_time);
-        delay.delay_mode=DelayMode::Allpass;
-        delay
+    pub fn init(&mut self, sample_rate: f32){
+        self.buffer.init(sample_rate);
     }
 
     pub fn process(&mut self, input_sample: f32) -> f32 {
@@ -287,12 +286,6 @@ impl DelayLine {
         // buffer.writeSample(buf_in);
         // return buf_out;
         match self.delay_mode{
-            DelayMode::DelayLine=>{
-                //buf_in = input_sample + delay * feedback
-                //buf_out = drywet(input_sample, delay)
-                buf_in = input_sample + delay * self.feedback;
-                buf_out = outils::equal_power_crossfade(input_sample, delay, self.dry_wet);
-            }
             DelayMode::Allpass=>{
                 // float buf_in = (delay * m_gain) + input;
                 // float buf_out = delay + (input * -m_gain);
@@ -312,11 +305,6 @@ impl DelayLine {
     pub fn set_delay_time(&mut self, delay_time: f32) {
         self.delay_time = delay_time;
         self.buffer.set_delay_time(delay_time * 1000.);
-    }
-
-    ///O = dry, 1 = wet
-    pub fn set_dry_wet(&mut self, dry_wet: f32) {
-        self.dry_wet = dry_wet;
     }
 
     pub fn set_feedback(&mut self, feedback: f32) {

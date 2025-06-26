@@ -9,17 +9,24 @@ pub struct Reverb{
 
 impl Reverb{
 
-    pub fn new(sample_rate: f32)->Self{
+    pub fn new()->Self{
         let mut allpasses: Vec<DelayLine> = vec![];
-        let time = [0.010, 0.020, 0.011, 0.050, 0.033, 0.027];
         for i in 0..NUMBER_OF_ALLPASS{
-            allpasses.push(DelayLine::new_allpass(sample_rate, 0.100));
-            allpasses[i].set_delay_time(time[i]);
+            allpasses.push(DelayLine::new(0.100, crate::buffer::DelayMode::Allpass));
         }
         Reverb{
         allpasses: allpasses,
         dry_wet: 0.5,
         }
+    }
+
+    pub fn init(&mut self, sample_rate: f32){
+        let time = [0.010, 0.020, 0.011, 0.050, 0.033, 0.027];
+
+          for (i, delayline) in self.allpasses.iter_mut().enumerate() {
+            delayline.init(sample_rate);
+            delayline.set_delay_time(time[i]);
+    }
     }
 
     pub fn set_reverb_time(&mut self, rt60:f32){

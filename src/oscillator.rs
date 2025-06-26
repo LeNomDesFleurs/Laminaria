@@ -15,14 +15,18 @@ pub struct Lfo {
 }
 
 impl Lfo {
-    ///Return a lfo with saw as the default waveform
-    pub fn build_lfo(frequence: f32, sample_rate: f32) -> Self {
+    pub fn new(frequence: f32) -> Self {
         Lfo {
             frequence,
             waveform: Waveform::Triangle,
             phasor: 0.,
-            sample_rate,
+            sample_rate: 0.,
         }
+    }
+
+    ///Return a lfo with saw as the default waveform
+    pub fn init(&mut self, sample_rate: f32) {
+        self.sample_rate = sample_rate;
     }
 
     pub fn set_freq_and_shape(&mut self, frequence: f32, waveform: Waveform) {
@@ -77,25 +81,28 @@ impl Lfo {
             Waveform::Saw => self.saw(),
             Waveform::Triangle => self.triangle(),
             // _ => 0.,
-            }
+        }
     }
-    }
-    
-
-#[derive(Clone, Copy)]
-struct SineWave{
-    pub frequency_hz: f32,
-    pub sample_rate: f32,
-    pub phasor:f32,
 }
 
-impl SineWave{
-    pub fn new(sample_rate: f32)->Self{
-        Self{
+#[derive(Clone, Copy)]
+pub struct SineWave {
+    pub frequency_hz: f32,
+    pub sample_rate: f32,
+    pub phasor: f32,
+}
+
+impl SineWave {
+    pub fn new() -> Self {
+        Self {
             frequency_hz: 440.0,
-            sample_rate,
+            sample_rate: 0.0,
             phasor: 0.0,
         }
+    }
+
+    pub fn init(&mut self, sample_rate: f32) {
+        self.sample_rate = sample_rate;
     }
 
     pub fn set_note(&mut self, midi_note: u8) {
@@ -111,7 +118,7 @@ impl SineWave{
         (self.phasor * two_pi).sin()
     }
 
-    fn process(&mut self)->f32{
+    pub fn process(&mut self) -> f32 {
         self.increment_phasor();
         self.sine()
     }
@@ -131,15 +138,20 @@ pub struct HarmonicOscillator {
 }
 
 impl HarmonicOscillator {
-    pub fn new(sample_rate: f32, frequency_hz: f32) -> Self {
+    pub fn new(frequency_hz: f32) -> Self {
         HarmonicOscillator {
-            sample_rate,
+            sample_rate: 0.0,
             frequency_hz,
-            sine_bank: [SineWave::new(sample_rate); 5],
+            sine_bank: [SineWave::new(); 5],
             current_sample_index: 0.0,
             harmonic_gain_exponent: 1.0,
             harmonic_index_increment: 1.0,
         }
+    }
+
+    pub fn init(&mut self, sample_rate: f32) {
+        self.sample_rate = sample_rate;
+        self.sine_bank.iter_mut().for_each(|x| x.init(sample_rate));
     }
 
     pub fn set_note(&mut self, midi_note: u8) {
@@ -150,24 +162,21 @@ impl HarmonicOscillator {
         let mut output = 0.0;
         let mut i = 1.;
 
-        for sine in self.sine_bank.iter_mut(){
+        for sine in self.sine_bank.iter_mut() {
             let gain = 1.0 / (i as f32).powf(self.harmonic_gain_exponent);
             sine.frequency_hz = self.frequency_hz * i;
-            output += sine.process()*gain;
-            i+=self.harmonic_index_increment;
+            output += sine.process() * gain;
+            i += self.harmonic_index_increment;
         }
         output /= 5.0;
 
         //volume adjustement
         // output *= ((self.harmonic_gain_exponent-0.01)/3.0).powf(1.2) * 100.;
         // output /= 100.;
-        output *= (self.harmonic_index_increment/2.0).powf(1.0);
+        output *= (self.harmonic_index_increment / 2.0).powf(1.0);
         output
     }
-
- 
 }
-
 
 pub struct Oscillator {
     pub sample_rate: f32,
@@ -179,15 +188,18 @@ pub struct Oscillator {
 }
 
 impl Oscillator {
-
-    pub fn new(sample_rate: f32)->Self{
-        Oscillator{
-            sample_rate,
+    pub fn new() -> Self {
+        Oscillator {
+            sample_rate: 0.0,
             current_sample_index: 0.0,
             harmonic_index_increment: 1.0,
             gain_exponent: 1.0,
             frequency_hz: 500.0,
         }
+    }
+
+    pub fn init(&mut self, sample_rate: f32) {
+        self.sample_rate = sample_rate;
     }
 
     pub fn set_note(&mut self, midi_note: u8) {
