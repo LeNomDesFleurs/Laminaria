@@ -1,7 +1,6 @@
 use crate::{outils, ParameterUpdate};
 use crossterm::{
-    cursor, event, event::Event, event::KeyCode, event::KeyEvent, event::KeyModifiers,
-    style::Stylize, terminal,
+    cursor, terminal,
 };
 use midir::{Ignore, MidiInput, MidiInputConnection};
 use std::collections::HashMap;

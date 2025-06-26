@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, ops::Index};
+use std::{collections::VecDeque};
 
 pub struct PolyMidiBuffer {
     pub notes: VecDeque<u8>,

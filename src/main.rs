@@ -77,7 +77,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     ];
     let synth_model: Box<dyn Synth> = match option_menu(options) {
         0 => {Box::new(HarmonicModel::new())},
-        1=>{Box::new(SineModel::new())}
+        1 => {Box::new(SineModel::new())},
         _ => {Box::new(SineModel::new())},
     };
 

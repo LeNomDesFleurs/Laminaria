@@ -23,6 +23,7 @@ pub struct SineModel {
 }
 
 impl HasConstructor for SineModel {
+    // Instantiate the memory
     fn new() -> Self {
         SineModel {
             envelopes: [Envelope::new(); NUMBER_OF_VOICES],
@@ -33,6 +34,7 @@ impl HasConstructor for SineModel {
         }
     }
 
+    // Init engine with the sample rate in the audio thread
     fn init(&mut self, sample_rate: f32) {
         self.envelopes.iter_mut().for_each(|x| x.init(sample_rate));
         self.oscillators.iter_mut().for_each(|x| x.init(sample_rate));
@@ -70,6 +72,7 @@ impl HasParameters for SineModel {
             ],
             nb_param: NB_SYNTH_PARAM,
         };
+
         assert!(params.no_id_double());
         assert!(params.no_cc_double());
         params
@@ -96,6 +99,8 @@ impl HasParameters for SineModel {
 }
 
 impl HasEngine for SineModel{
+
+    // runned for every sample, do whatever you want here
     fn process(&mut self) -> f32 {
         let mut sample: f32 = 0.;
         for i in VOICE_ITERATOR {
