@@ -69,13 +69,47 @@ The Reverb is just 5 allpass filters in series, there are a lot of resonance due
 
 ## 👩🏿‍💻 Hack it
 
-I may do a proper boilerplate someday, as of now it should already be pretty hackable :
-- add parameter in the `parameter` file
-  - add a key in the `Parameter ID` enum
-  - increment the `NUMBER_OF_PARAMETER` const
-  - add its definition in `Parameter::new()`
-  - get the value of the parameter in `synth::set_parameter()`
-- define the sound in `synth::process()`
+1. Copy `sine_model.rs` as a template
+2. Rename the file and the class
+3. Implement all the necessary traits
+4. Parameters
+   - Add a key in the `Parameter ID` enum
+   - Modify the `NUMBER_OF_PARAMETER` const
+   - Add its definition in `Parameter::new()`
+   - Get the value of the parameter in `synth::set_parameter()`
+5. Define the sound in `synth::process()`
+6. Add the model creation in the `main.rs` (*Beware of the order*)
+7. Add its name in the option variable above the match statement
+
+The current options :
+
+```rust
+let options = vec![
+        "Harmonic".to_string(),
+        "Sine".to_string(),
+    ];
+    let synth_model: Box<dyn Synth> = match option_menu(options) {
+        0 => {Box::new(HarmonicModel::new())},
+        1 => {Box::new(SineModel::new())}
+        _ => {Box::new(SineModel::new())},
+    };
+```
+
+Lets add a new model named `WavetableModel`
+
+```rust
+let options = vec![
+        "Harmonic".to_string(),
+        "Sine".to_string(),
+        "Wavetable".to_string(), // here
+    ];
+    let synth_model: Box<dyn Synth> = match option_menu(options) {
+        0 => {Box::new(HarmonicModel::new())},
+        1 => {Box::new(SineModel::new())},
+        2 => {Box::new(WavetableModel())}, //and there
+        _ => {Box::new(SineModel::new())},
+    };
+```
 
 ## 📚 Lib :
 - cpal for audio
