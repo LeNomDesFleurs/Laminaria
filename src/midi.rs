@@ -92,7 +92,7 @@ pub fn connect_midi(
              for (i, p) in in_ports.iter().enumerate() {
                     options.push(midi_in.port_name(p).unwrap());
                 }
-            selection = option_menu(options);
+            selection = option_menu(options, "Select MIDI Port".to_string());
             in_ports
                 .get(selection)
                 .ok_or("invalid input port selected")?

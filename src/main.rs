@@ -8,6 +8,7 @@ mod ui;
 pub use harmonic_model::HarmonicModel;
 mod sine_model;
 pub use crate::sine_model::SineModel;
+use crate::ui::clean_terminal;
 use crate::ui::init_terminal;
 mod oscillator;
 pub use oscillator::HarmonicOscillator;
@@ -63,6 +64,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
     let midi_channel: u8;
 
+    std::panic::set_hook(Box::new(|info| {
+        ui::clean_terminal();
+        eprintln!("{info}");
+    }));
+
     if args.channel > 15 {
         midi_channel = 15
     } else {
@@ -75,7 +81,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         "Harmonic".to_string(),
         "Sine".to_string(),
     ];
-    let synth_model: Box<dyn Synth> = match option_menu(options) {
+    let synth_model: Box<dyn Synth> = match option_menu(options, "Select Synth Model".to_string()) {
         0 => {Box::new(HarmonicModel::new())},
         1 => {Box::new(SineModel::new())},
         _ => {Box::new(SineModel::new())},
@@ -123,6 +129,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         midi_channel,
         number_of_params,
     );
+
+    clean_terminal();
 
     Ok(())
 }

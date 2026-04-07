@@ -213,7 +213,10 @@ pub fn gui(parameters: Arc<Mutex<Parameters>>, receive_event: Receiver<UiEvent>,
             number_of_params,
         );
     }
+    
 }
+
+
 fn update_display(
     parameters: &Vec<Parameter>,
     midi_channel: u8,
@@ -251,13 +254,13 @@ fn update_display(
 }
 
 
-pub fn option_menu(options: Vec<String>)-> usize{
+pub fn option_menu(options: Vec<String>, text: String)-> usize{
 
     let mut selection:usize = 0;
     loop {
                 println!("{}", terminal::Clear(terminal::ClearType::All));
                 println!("{}", cursor::MoveTo(0, 0));
-                println!("\nAvailable input ports (use arrow and enter):\r\n");
+                println!("\n{} (use arrow and enter):\r\n", text);
                 for (i, p) in options.iter().enumerate() {
                     // if the options is the currently selected, write it in bold
                     if i == selection as usize {
@@ -298,7 +301,19 @@ pub fn option_menu(options: Vec<String>)-> usize{
 }
 
 
-pub fn init_terminal(){
-     enable_raw_mode().unwrap();
-    execute!(std::io::stdout(), cursor::Hide).unwrap();
+
+pub fn init_terminal() {
+    enable_raw_mode().unwrap();
+    execute!(std::io::stdout(),
+        terminal::EnterAlternateScreen,
+        cursor::Hide,
+    ).unwrap();
+}
+
+pub fn clean_terminal() {
+    execute!(std::io::stdout(),
+        terminal::LeaveAlternateScreen,
+        cursor::Show,
+    ).unwrap();
+    disable_raw_mode().unwrap();
 }

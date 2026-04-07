@@ -143,7 +143,7 @@ impl Biquad {
         self.filter_type = filter_type;
     }
 
-    fn w(self) -> FilterType {
+    pub fn get_type(self) -> FilterType {
         self.filter_type
     }
 
