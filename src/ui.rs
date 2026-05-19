@@ -3,7 +3,7 @@ use crate::parameters::{Parameter, Parameters};
 use crate::{ParameterUpdate};
 use crossterm::execute;
 use crossterm::{
-    cursor, event, event::Event, event::KeyCode, event::KeyEvent, event::KeyModifiers,
+    cursor, event, event::Event, event::KeyCode, event::KeyEvent, event::KeyEventKind, event::KeyModifiers,
     style::Stylize, terminal, terminal::disable_raw_mode, terminal::enable_raw_mode,
 };
 use std::io::ErrorKind;
@@ -67,9 +67,11 @@ pub fn keyboard_input(
     let mut parameters_modified: Option<ParameterModified>;
     let mut ui_event = UiEvent::Refresh;
     loop {
-        if let Event::Key(KeyEvent { code, .. }) =
+        
+        if let Event::Key(KeyEvent { code, kind, .. }) =
             event::read().unwrap_or(Event::Key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE)))
         {
+            if kind == KeyEventKind::Press {
             //got to refresh at the end, will be modified if the event involve more modification
             ui_event = UiEvent::Refresh;
             parameters_modified = None;
@@ -159,6 +161,7 @@ pub fn keyboard_input(
                 param_sender.send((id, parameter.get_raw_value())).unwrap();
             });
         }
+    }
     }
     Ok(())
 }
