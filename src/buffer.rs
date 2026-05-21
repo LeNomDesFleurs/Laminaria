@@ -296,6 +296,7 @@ impl DelayLine {
                 //buf_in = input_sample + delay * feedback
                 //buf_out = delay
                 buf_in = input_sample + (delay * self.feedback);
+                buf_out = delay;
             }
         }
         self.buffer.write_sample(buf_in);
