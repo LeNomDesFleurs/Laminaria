@@ -129,7 +129,7 @@ pub fn connect_midi(
                                 Some(id) => {
                                     //convert midi 127 to orca 36
                                     let orca_value =
-                                        ((midi_value as f32 / 127.) * 36.).floor() as i32;
+                                        ((midi_value as f32 / 128.) * 36.).floor() as i32;
                                     let parameter_binding =
                                         &mut parameter_clone.lock().unwrap()[*id];
                                     parameter_binding.value = orca_value;
