@@ -1,10 +1,11 @@
 use crate::outils::get_orca_character;
 use crate::parameters::{Parameter, Parameters};
-use crate::{ParameterUpdate};
+use crate::ParameterUpdate;
 use crossterm::execute;
 use crossterm::{
-    cursor, event, event::Event, event::KeyCode, event::KeyEvent, event::KeyEventKind, event::KeyModifiers,
-    style::Stylize, terminal, terminal::disable_raw_mode, terminal::enable_raw_mode,
+    cursor, event, event::Event, event::KeyCode, event::KeyEvent, event::KeyEventKind,
+    event::KeyModifiers, style::Stylize, terminal, terminal::disable_raw_mode,
+    terminal::enable_raw_mode,
 };
 use std::io::ErrorKind;
 use std::io::Result;
@@ -18,6 +19,7 @@ pub enum UiEvent {
     Refresh,
     UpdateMidiportName(String),
     UpdateMidiChannel(u8),
+    ToggleRawCCMode,
 }
 
 //little enum that allow me to simplify the key_code match by deferring all the mutex work to a more convenient and centralized place
@@ -34,9 +36,8 @@ pub fn keyboard_input(
     gui_sender: Sender<UiEvent>,
     midi_sender: Sender<MidiMessage>,
     midi_channel: u8,
-    number_of_params: usize
+    number_of_params: usize,
 ) -> Result<()> {
-   
     let mut selected: i32 = 0;
     let midi_channel = Arc::new(Mutex::new(midi_channel));
     // need to get the midi as a variable to keep it in scope
@@ -62,116 +63,126 @@ pub fn keyboard_input(
     gui_sender
         .send(UiEvent::UpdateMidiChannel(*midi_channel.lock().unwrap()))
         .map_err(|_err| std::io::Error::new(ErrorKind::Other, "no gui receiver"))?;
-    
 
     let mut parameters_modified: Option<ParameterModified>;
     let mut ui_event = UiEvent::Refresh;
     loop {
-        
         if let Event::Key(KeyEvent { code, kind, .. }) =
             event::read().unwrap_or(Event::Key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE)))
         {
             if kind == KeyEventKind::Press {
-            //got to refresh at the end, will be modified if the event involve more modification
-            ui_event = UiEvent::Refresh;
-            parameters_modified = None;
-            match code {
-                KeyCode::Esc => {
-                    disable_raw_mode().unwrap();
-                    execute!(std::io::stdout(), cursor::Show)?;
-                    println!("{}", terminal::Clear(terminal::ClearType::All));
-                    println!("{}", cursor::MoveTo(0, 0));
-                    break;
-                }
-                KeyCode::Down => {
-                    if selected < number_of_params as i32 - 1 { 
-                        selected += 1;
+                //got to refresh at the end, will be modified if the event involve more modification
+                ui_event = UiEvent::Refresh;
+                parameters_modified = None;
+                match code {
+                    KeyCode::Esc => {
+                        disable_raw_mode().unwrap();
+                        execute!(std::io::stdout(), cursor::Show)?;
+                        println!("{}", terminal::Clear(terminal::ClearType::All));
+                        println!("{}", cursor::MoveTo(0, 0));
+                        break;
                     }
-                    ui_event = UiEvent::UpdateSelection(selected);
-                }
-                KeyCode::Up => {
-                    if selected > 0 {
-                        selected -= 1;
+                    KeyCode::Down => {
+                        if selected < number_of_params as i32 - 1 {
+                            selected += 1;
+                        }
+                        ui_event = UiEvent::UpdateSelection(selected);
                     }
-                    ui_event = UiEvent::UpdateSelection(selected);
-                }
-                KeyCode::Right => parameters_modified = Some(ParameterModified::Increment),
-                KeyCode::Left => parameters_modified = Some(ParameterModified::Decrement),
-                KeyCode::Char(char) => {
-                    if char == '<' {
-                        let mut midi_chan = midi_channel.lock().unwrap();
-                        //min channel 0
-                        if *midi_chan > 0 {
-                            *midi_chan -= 1;
-                            ui_event = UiEvent::UpdateMidiChannel(*midi_chan);
+                    KeyCode::Up => {
+                        if selected > 0 {
+                            selected -= 1;
                         }
-                    } else if char == '>' {
-                        let mut midi_chan = midi_channel.lock().unwrap();
-                        //max channel 15
-                        if *midi_chan < 15 {
-                            *midi_chan += 1;
-                            ui_event = UiEvent::UpdateMidiChannel(*midi_chan);
-                        }
-                    } else {
-                        parameters_modified = Some(ParameterModified::SetValue(char))
+                        ui_event = UiEvent::UpdateSelection(selected);
                     }
-                }
-                KeyCode::Tab => {
-                    _midi_connection = match connect_midi(
-                        midi_sender.clone(),
-                        parameters.clone(),
-                        param_sender.clone(),
-                        gui_sender.clone(),
-                        midi_channel.clone(),
-                    ) {
-                        Ok((midi_connection, port_name)) => {
-                            ui_event = UiEvent::UpdateMidiportName(port_name);
-                            *midi_channel.lock().unwrap() = 0;
-                            midi_connection
+                    KeyCode::Right => parameters_modified = Some(ParameterModified::Increment),
+                    KeyCode::Left => parameters_modified = Some(ParameterModified::Decrement),
+                    KeyCode::Char(char) => {
+                        match char {
+                            '<' => {
+                                let mut midi_chan = midi_channel.lock().unwrap();
+                                //min channel 0
+                                if *midi_chan > 0 {
+                                    *midi_chan -= 1;
+                                    ui_event = UiEvent::UpdateMidiChannel(*midi_chan);
+                                }
+                            }
+                            '>' => {
+                                let mut midi_chan = midi_channel.lock().unwrap();
+                                //max channel 15
+                                if *midi_chan < 15 {
+                                    *midi_chan += 1;
+                                    ui_event = UiEvent::UpdateMidiChannel(*midi_chan);
+                                }
+                            }
+                            '!'=>{
+                                    ui_event = UiEvent::ToggleRawCCMode;
+
+                            }
+                            _ => parameters_modified = Some(ParameterModified::SetValue(char)),
                         }
-                        Err(error) => panic!("can't connect to midi: {:?}", error),
-                    };
+                    }
+                    KeyCode::Tab => {
+                        _midi_connection = match connect_midi(
+                            midi_sender.clone(),
+                            parameters.clone(),
+                            param_sender.clone(),
+                            gui_sender.clone(),
+                            midi_channel.clone(),
+                        ) {
+                            Ok((midi_connection, port_name)) => {
+                                ui_event = UiEvent::UpdateMidiportName(port_name);
+                                *midi_channel.lock().unwrap() = 0;
+                                midi_connection
+                            }
+                            Err(error) => panic!("can't connect to midi: {:?}", error),
+                        };
+                    }
+                    // Key::Ctrl('q') => self.should_quit = true,
+                    _ => {}
                 }
-                // Key::Ctrl('q') => self.should_quit = true,
-                _ => {}
+
+                //update GUI
+                gui_sender
+                    .send(ui_event)
+                    .map_err(|_err| std::io::Error::new(ErrorKind::Other, "no gui receiver"))?;
+
+                //update Audio Thread if a parameter is modified
+                parameters_modified.map(|modification| {
+                    //the first unwrap is in the case where a mutex fucks up, the second is for get_mut and only return None if there is no parameter in the Hash map, which cannot happen
+                    let mut parameters_binding = parameters.lock().unwrap();
+                    let capsule_binding = parameters_binding
+                        .capsules
+                        .get_mut(selected as usize)
+                        .unwrap();
+                    let parameter = &mut capsule_binding.parameter;
+                    let id = capsule_binding.id;
+                    //apply modification
+                    match modification {
+                        ParameterModified::Increment => parameter.increment(),
+                        ParameterModified::Decrement => parameter.decrement(),
+                        ParameterModified::SetValue(char) => parameter.set_value(char),
+                    }
+                    //get a copy of the parameter and send it to the audio thread
+                    param_sender.send((id, parameter.get_raw_value())).unwrap();
+                });
             }
-
-            //update GUI
-            gui_sender
-                .send(ui_event)
-                .map_err(|_err| std::io::Error::new(ErrorKind::Other, "no gui receiver"))?;
-
-            //update Audio Thread if a parameter is modified
-            parameters_modified.map(|modification| {
-                //the first unwrap is in the case where a mutex fucks up, the second is for get_mut and only return None if there is no parameter in the Hash map, which cannot happen
-                let mut parameters_binding = parameters.lock().unwrap();
-                let capsule_binding = parameters_binding
-                    .capsules
-                    .get_mut(selected as usize)
-                    .unwrap();
-                let parameter = &mut capsule_binding.parameter;
-                let id = capsule_binding.id;
-                //apply modification
-                match modification {
-                    ParameterModified::Increment => parameter.increment(),
-                    ParameterModified::Decrement => parameter.decrement(),
-                    ParameterModified::SetValue(char) => parameter.set_value(char),
-                }
-                //get a copy of the parameter and send it to the audio thread
-                param_sender.send((id, parameter.get_raw_value())).unwrap();
-            });
         }
-    }
     }
     Ok(())
 }
 
-pub fn gui(parameters: Arc<Mutex<Parameters>>, receive_event: Receiver<UiEvent>, number_of_params: usize) -> Result<()> {
+pub fn gui(
+    parameters: Arc<Mutex<Parameters>>,
+    receive_event: Receiver<UiEvent>,
+    number_of_params: usize,
+) -> Result<()> {
+
     let mut local_parameters: Vec<Parameter> = Vec::new();
     let mut midi_channel: u8 = 0;
     let mut midi_port_name: String = "midi port".to_string();
     let mut selected: i32 = 0;
     let mut top_selection_index = 0;
+    let mut raw_cc_display = false;
     let default = (10 as u16, 10 as u16);
     //use this to get a name vector, il allow me to refer to a parameter via it's index rather than it's name
     loop {
@@ -187,6 +198,9 @@ pub fn gui(parameters: Arc<Mutex<Parameters>>, receive_event: Receiver<UiEvent>,
             UI::UpdateMidiportName(port_name) => {
                 midi_port_name = port_name;
                 midi_channel = 0
+            }
+            UI::ToggleRawCCMode => {
+                raw_cc_display = !raw_cc_display;
             }
             UI::Refresh => {}
         };
@@ -214,11 +228,10 @@ pub fn gui(parameters: Arc<Mutex<Parameters>>, receive_event: Receiver<UiEvent>,
             top_selection_index,
             terminal_size.1 as i32,
             number_of_params,
+            raw_cc_display,
         );
     }
-    
 }
-
 
 fn update_display(
     parameters: &Vec<Parameter>,
@@ -228,6 +241,7 @@ fn update_display(
     top_selection_index: i32,
     size: i32,
     number_of_params: usize,
+    raw_midi_cc: bool,
 ) {
     println!("{}", terminal::Clear(terminal::ClearType::All));
     println!("{}", cursor::MoveTo(0, 0));
@@ -247,76 +261,73 @@ fn update_display(
     }
     for i in iterator {
         if i == selected as usize {
-            print!("{}", parameters[i].build_string().bold().italic());
+            print!("{}", parameters[i].build_string(raw_midi_cc).bold().italic());
         } else {
             // TODO add a string memory to avoid rebuilding at each refresh
-            print!("{}", parameters[i].build_string());
+            print!("{}", parameters[i].build_string(raw_midi_cc));
         }
         print! {"\r\n"};
     }
 }
 
-
-pub fn option_menu(options: Vec<String>, text: String)-> usize{
-
-    let mut selection:usize = 0;
+pub fn option_menu(options: Vec<String>, text: String) -> usize {
+    let mut selection: usize = 0;
     loop {
-                println!("{}", terminal::Clear(terminal::ClearType::All));
-                println!("{}", cursor::MoveTo(0, 0));
-                println!("\n{} (use arrow and enter):\r\n", text);
-                for (i, p) in options.iter().enumerate() {
-                    // if the options is the currently selected, write it in bold
-                    if i == selection as usize {
-                        println!(
-                            "\r -> {}",
-                            p.clone().bold().italic()
-                        )
-                    } else {
-                        println!("\r    {}", p)
-                    }
-                }
-
-                if let Event::Key(KeyEvent { code, .. }) = event::read()
-                    .unwrap_or(Event::Key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE)))
-                {
-                    match code {
-                        KeyCode::Enter => {
-                            print!("{}", terminal::Clear(terminal::ClearType::All));
-                            print!("{}", cursor::MoveTo(0, 0));
-                            break;
-                        }
-                        KeyCode::Down => {
-                            if selection < options.len() - 1{
-                                selection += 1;
-                            }
-                        }
-                        KeyCode::Up => {
-                            if selection > 0{
-                            selection -= 1;
-                            }
-                        }
-                        _ => {}
-                    }
-                }
+        println!("{}", terminal::Clear(terminal::ClearType::All));
+        println!("{}", cursor::MoveTo(0, 0));
+        println!("\n{} (use arrow and enter):\r\n", text);
+        for (i, p) in options.iter().enumerate() {
+            // if the options is the currently selected, write it in bold
+            if i == selection as usize {
+                println!("\r -> {}", p.clone().bold().italic())
+            } else {
+                println!("\r    {}", p)
             }
+        }
+
+        if let Event::Key(KeyEvent { code, .. }) =
+            event::read().unwrap_or(Event::Key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE)))
+        {
+            match code {
+                KeyCode::Enter => {
+                    print!("{}", terminal::Clear(terminal::ClearType::All));
+                    print!("{}", cursor::MoveTo(0, 0));
+                    break;
+                }
+                KeyCode::Down => {
+                    if selection < options.len() - 1 {
+                        selection += 1;
+                    }
+                }
+                KeyCode::Up => {
+                    if selection > 0 {
+                        selection -= 1;
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
 
     return selection;
 }
 
-
-
 pub fn init_terminal() {
     enable_raw_mode().unwrap();
-    execute!(std::io::stdout(),
+    execute!(
+        std::io::stdout(),
         terminal::EnterAlternateScreen,
         cursor::Hide,
-    ).unwrap();
+    )
+    .unwrap();
 }
 
 pub fn clean_terminal() {
-    execute!(std::io::stdout(),
+    execute!(
+        std::io::stdout(),
         terminal::LeaveAlternateScreen,
         cursor::Show,
-    ).unwrap();
+    )
+    .unwrap();
     disable_raw_mode().unwrap();
 }

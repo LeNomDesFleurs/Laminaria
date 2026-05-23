@@ -27,6 +27,7 @@ You can also use `cargo run` for a quick launch, but it will be less efficient.
 - `>` - Increment midi channel
 - `<` - decrement midi channel
 - `Tab` - select midi input
+- `!` - show MIDI CC value instead of ORCA letters
 
 ## 📺 Display :
 

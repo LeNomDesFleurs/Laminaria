@@ -24,10 +24,14 @@ impl Parameter {
         }
     }
 
-    pub fn build_string(&self) -> String {
+    pub fn build_string(&self, raw_midi_cc: bool) -> String {
         let mut string: String = Default::default();
         //CC
-        string += &self.midicc.to_string();
+        if raw_midi_cc {
+            string += &outils::get_orca_integer(self.midicc).unwrap_or(0).to_string();
+        } else {
+            string += &self.midicc.to_string();
+        }
         string += " - ";
         //NAME
         string += &self.display_name;

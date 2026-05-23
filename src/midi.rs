@@ -1,13 +1,11 @@
+use crate::ui::option_menu;
 use crate::{outils, ParameterUpdate};
-use crossterm::{
-    cursor, terminal,
-};
+use crossterm::{cursor, terminal};
 use midir::{Ignore, MidiInput, MidiInputConnection};
 use std::collections::HashMap;
 use std::error::Error;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
-use crate::ui::option_menu;
 
 const NOTE_OFF_MASK: u8 = 0b1000_0000;
 const NOTE_ON_MASK: u8 = 0b1001_0000;
@@ -51,13 +49,18 @@ fn raw_midi_to_message(status: u8, note: u8, velocity: u8) -> (u8, MidiMessage) 
     type MM = MidiMessage;
     match status & 0xf0 {
         NOTE_OFF_MASK => (channel, MM::NoteOff(note)),
-        NOTE_ON_MASK => (channel, MM::NoteOn(note)),
+        NOTE_ON_MASK => {
+            if velocity == 0 {
+                return (channel, MM::NoteOff(note));
+            }
+            (channel, MM::NoteOn(note))
+        }
         CONTROL_CHANGE_MASK => (channel, MM::ControlChange(note, velocity)),
         _ => (channel, MM::None),
     }
 }
 
-use crate::parameters::{Parameters};
+use crate::parameters::Parameters;
 use crate::ui::UiEvent;
 
 pub fn connect_midi(
@@ -88,10 +91,10 @@ pub fn connect_midi(
             &in_ports[0]
         }
         _ => {
-            let mut options:Vec<String>= vec![];
-             for (i, p) in in_ports.iter().enumerate() {
-                    options.push(midi_in.port_name(p).unwrap());
-                }
+            let mut options: Vec<String> = vec![];
+            for (i, p) in in_ports.iter().enumerate() {
+                options.push(midi_in.port_name(p).unwrap());
+            }
             selection = option_menu(options, "Select MIDI Port".to_string());
             in_ports
                 .get(selection)
@@ -110,13 +113,11 @@ pub fn connect_midi(
             "midir-read-input",
             move |_stamp, message, _| {
                 let (channel, midi_message): (u8, MidiMessage);
-                if message.len()<3{
+                if message.len() < 3 {
+                    (channel, midi_message) = raw_midi_to_message(message[0], 0, 0);
+                } else {
                     (channel, midi_message) =
-                        raw_midi_to_message(message[0], 0, 0);
-                }
-                else {
-                    (channel, midi_message) =
-                    raw_midi_to_message(message[0], message[1], message[2]);
+                        raw_midi_to_message(message[0], message[1], message[2]);
                 }
                 //check if CC
                 // println!("{}: {:?}", _stamp, message);
